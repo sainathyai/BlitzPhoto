@@ -1,0 +1,14 @@
+target/
+.mvn/
+mvnw
+mvnw.cmd
+.env
+.env.*
+*.log
+logs/
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+

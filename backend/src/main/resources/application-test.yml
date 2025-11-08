@@ -1,0 +1,29 @@
+# Test Profile Configuration
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:15:///test
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+  
+  flyway:
+    enabled: true
+
+logging:
+  level:
+    root: WARN
+    com.blitzphoto: DEBUG
+    org.testcontainers: INFO
+
+rapidphoto:
+  aws:
+    region: us-east-1
+    s3:
+      uploads-bucket: test-uploads
+      thumbnails-bucket: test-thumbnails
+    sqs:
+      upload-queue-url: http://localhost:4566/000000000000/test-queue
+

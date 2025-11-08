@@ -1,0 +1,26 @@
+# Development Profile Configuration
+spring:
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  
+  devtools:
+    restart:
+      enabled: true
+    livereload:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.blitzphoto: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+
+rapidphoto:
+  security:
+    cors:
+      allowed-origins: "*"  # Allow all origins in dev
+

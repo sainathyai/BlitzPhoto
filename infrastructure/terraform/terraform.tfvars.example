@@ -1,0 +1,17 @@
+# Copy this file to terraform.tfvars and fill in your values
+# DO NOT commit terraform.tfvars to git!
+
+aws_region  = "us-east-1"
+environment = "dev"
+project_name = "rapidphoto"
+
+# Database credentials (use strong passwords in production!)
+db_username = "rapidphoto_admin"
+db_password = "CHANGE_ME_TO_STRONG_PASSWORD" # ⚠️ CHANGE THIS!
+
+# Network
+vpc_cidr = "10.0.0.0/16"
+
+# High Availability (set to true for production)
+enable_multi_az = false
+

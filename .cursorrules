@@ -1,0 +1,23 @@
+# RapidPhotoUpload - Cursor Rules
+
+## Communication Style
+- Provide summaries and status updates INTERACTIVELY in chat, not as separate markdown files
+- Only create documentation files when explicitly requested or when it's part of the core deliverables
+- Focus on taking action and showing results, not documenting every step
+
+## Code & Implementation
+- Follow clean code principles (DDD, CQRS, VSA)
+- Use the tech stack defined in IMPLEMENTATION_PLAN.md
+- Test code before marking tasks complete
+- Keep commits small and focused
+
+## Progress Tracking
+- Update todo list when working on multi-step tasks
+- Mark tasks complete as they finish
+- Report progress concisely in chat
+
+## File Management
+- Don't create *_SUMMARY.md, *_RESULTS.md, or *_COMPLETE.md files unless specifically requested
+- Core documentation (README, setup guides, architecture docs) is fine
+- Temporary verification scripts and tools are useful
+

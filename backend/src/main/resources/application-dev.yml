@@ -19,7 +19,7 @@ logging:
     org.springframework.web: DEBUG
     org.springframework.security: DEBUG
 
-rapidphoto:
+blitzphoto:
   security:
     cors:
       allowed-origins: "*"  # Allow all origins in dev

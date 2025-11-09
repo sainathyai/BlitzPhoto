@@ -10,6 +10,8 @@ import com.blitzphoto.domain.repository.UploadJobRepository;
 import com.blitzphoto.domain.repository.UserRepository;
 import com.blitzphoto.domain.service.UploadDomainService;
 import com.blitzphoto.infrastructure.aws.S3Service;
+import com.blitzphoto.application.service.UploadValidationService;
+import com.blitzphoto.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,6 +39,7 @@ public class InitiateUploadCommandHandler {
     private final UploadJobRepository uploadJobRepository;
     private final UploadDomainService uploadDomainService;
     private final S3Service s3Service;
+    private final UploadValidationService uploadValidationService;
 
     @Value("${blitzphoto.upload.multipart-threshold-mb:5}")
     private int multipartThresholdMb;
@@ -51,9 +54,12 @@ public class InitiateUploadCommandHandler {
         log.info("Handling InitiateUploadCommand for user {} with {} photos", 
                 command.getUserId(), command.getPhotos().size());
         
+        // Validate upload request
+        uploadValidationService.validateUploadRequest(command.getPhotos());
+        
         // Load user
         User user = userRepository.findById(command.getUserId())
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + command.getUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + command.getUserId()));
         
         // Convert command photos to domain service metadata
         List<UploadDomainService.PhotoMetadata> photoMetadata = command.getPhotos().stream()

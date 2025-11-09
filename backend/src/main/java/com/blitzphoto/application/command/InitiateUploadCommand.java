@@ -1,5 +1,6 @@
 package com.blitzphoto.application.command;
 
+import com.blitzphoto.application.dto.PhotoUploadRequest;
 import lombok.Builder;
 import lombok.Value;
 
@@ -18,16 +19,5 @@ public class InitiateUploadCommand {
     
     UUID userId;
     List<PhotoUploadRequest> photos;
-    
-    /**
-     * Photo Upload Request
-     */
-    @Value
-    @Builder
-    public static class PhotoUploadRequest {
-        String fileName;
-        String contentType;
-        Long fileSize;
-    }
 }
 

@@ -18,16 +18,16 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
-    @Value("${rapidphoto.security.cors.allowed-origins}")
+    @Value("${blitzphoto.security.cors.allowed-origins}")
     private String allowedOrigins;
 
-    @Value("${rapidphoto.security.cors.allowed-methods}")
+    @Value("${blitzphoto.security.cors.allowed-methods}")
     private String allowedMethods;
 
-    @Value("${rapidphoto.security.cors.allowed-headers}")
+    @Value("${blitzphoto.security.cors.allowed-headers}")
     private String allowedHeaders;
 
-    @Value("${rapidphoto.security.cors.allow-credentials}")
+    @Value("${blitzphoto.security.cors.allow-credentials}")
     private boolean allowCredentials;
 
     @Bean

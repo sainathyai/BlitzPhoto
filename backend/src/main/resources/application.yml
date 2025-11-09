@@ -1,14 +1,14 @@
-# RapidPhotoUpload - Application Configuration
+# BlitzPhoto - Application Configuration
 spring:
   application:
-    name: rapidphoto-backend
+    name: blitzphoto-backend
   
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:rapidphoto}
-    username: ${DB_USERNAME:rapidphoto_admin}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:blitzphoto}
+    username: ${DB_USERNAME:rapidphoto}
     password: ${DB_PASSWORD:changeme}
     driver-class-name: org.postgresql.Driver
     hikari:
@@ -91,7 +91,7 @@ springdoc:
   show-actuator: true
 
 # Application-specific Configuration
-rapidphoto:
+blitzphoto:
   upload:
     max-files-per-job: 100
     max-file-size-mb: 50
@@ -132,7 +132,7 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
   file:
-    name: logs/rapidphoto.log
+    name: logs/blitzphoto.log
     max-size: 10MB
     max-history: 30
 

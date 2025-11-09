@@ -15,7 +15,7 @@ logging:
     org.springframework: WARN
     org.hibernate: WARN
 
-rapidphoto:
+blitzphoto:
   aws:
     s3:
       presigned-url-expiration-minutes: 10  # Shorter in production

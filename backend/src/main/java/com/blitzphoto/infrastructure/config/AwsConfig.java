@@ -18,7 +18,7 @@ import software.amazon.awssdk.services.sqs.SqsClient;
 @Configuration
 public class AwsConfig {
 
-    @Value("${rapidphoto.aws.region}")
+    @Value("${blitzphoto.aws.region}")
     private String awsRegion;
 
     @Bean

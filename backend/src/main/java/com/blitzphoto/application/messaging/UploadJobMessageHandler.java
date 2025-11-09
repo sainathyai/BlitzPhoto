@@ -5,6 +5,7 @@ import com.blitzphoto.domain.model.UploadJob;
 import com.blitzphoto.domain.repository.PhotoRepository;
 import com.blitzphoto.domain.repository.UploadJobRepository;
 import com.blitzphoto.infrastructure.aws.S3Service;
+import com.blitzphoto.infrastructure.image.ImageProcessingService;
 import com.blitzphoto.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,7 @@ public class UploadJobMessageHandler {
     private final UploadJobRepository uploadJobRepository;
     private final PhotoRepository photoRepository;
     private final S3Service s3Service;
+    private final ImageProcessingService imageProcessingService;
 
     /**
      * Process upload job message
@@ -101,16 +103,26 @@ public class UploadJobMessageHandler {
                 photo.markAsUploading();
             }
 
-            // In a real system, you would:
-            // 1. Verify the S3 object exists
-            // 2. Generate thumbnail (async)
-            // 3. Extract metadata (dimensions, etc.)
-            // 4. Update photo with metadata
-            // 5. Mark as completed
-
-            // For now, we'll mark it as uploaded and let the processing happen later
+            // Verify S3 object exists and process image
             if (photo.getStatus() == Photo.UploadStatus.UPLOADING) {
-                photo.markAsUploaded();
+                // Generate thumbnail and extract metadata
+                try {
+                    String thumbnailS3Key = generateThumbnailS3Key(photo.getS3Key());
+                    imageProcessingService.generateAndUploadThumbnail(photo.getS3Key(), thumbnailS3Key);
+                    
+                    // Extract image metadata
+                    ImageProcessingService.ImageMetadata metadata = 
+                            imageProcessingService.extractImageMetadata(photo.getS3Key());
+                    
+                    Integer width = metadata != null ? metadata.width() : null;
+                    Integer height = metadata != null ? metadata.height() : null;
+                    
+                    // Mark as completed with all metadata
+                    photo.markAsCompleted(photo.getS3Key(), thumbnailS3Key, width, height);
+                } catch (Exception e) {
+                    log.error("Failed to process photo: photoId={}", photo.getId(), e);
+                    photo.markAsFailed("Failed to process image: " + e.getMessage());
+                }
             }
 
             log.debug("Processed photo: photoId={}, status={}", photo.getId(), photo.getStatus());
@@ -160,6 +172,27 @@ public class UploadJobMessageHandler {
         }
 
         uploadJobRepository.save(uploadJob);
+    }
+
+    /**
+     * Generate thumbnail S3 key from original S3 key
+     */
+    private String generateThumbnailS3Key(String originalS3Key) {
+        // Replace uploads bucket path with thumbnails path
+        // Format: thumbnails/{userId}/{timestamp}-{uuid}-{filename}.jpg
+        String thumbnailKey = originalS3Key.replace("users/", "thumbnails/");
+        
+        // Ensure .jpg extension for thumbnails
+        if (!thumbnailKey.endsWith(".jpg")) {
+            int lastDot = thumbnailKey.lastIndexOf('.');
+            if (lastDot > 0) {
+                thumbnailKey = thumbnailKey.substring(0, lastDot) + ".jpg";
+            } else {
+                thumbnailKey = thumbnailKey + ".jpg";
+            }
+        }
+        
+        return thumbnailKey;
     }
 }
 

@@ -10,6 +10,7 @@ import com.blitzphoto.domain.repository.UploadJobRepository;
 import com.blitzphoto.domain.repository.UserRepository;
 import com.blitzphoto.domain.service.UploadDomainService;
 import com.blitzphoto.infrastructure.aws.S3Service;
+import com.blitzphoto.infrastructure.aws.SqsService;
 import com.blitzphoto.application.service.UploadValidationService;
 import com.blitzphoto.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class InitiateUploadCommandHandler {
     private final UploadJobRepository uploadJobRepository;
     private final UploadDomainService uploadDomainService;
     private final S3Service s3Service;
+    private final SqsService sqsService;
     private final UploadValidationService uploadValidationService;
 
     @Value("${blitzphoto.upload.multipart-threshold-mb:5}")
@@ -104,6 +106,16 @@ public class InitiateUploadCommandHandler {
         
         // Save upload job with updated photos
         uploadJob = uploadJobRepository.save(uploadJob);
+        
+        // Publish message to SQS for async processing
+        try {
+            sqsService.publishUploadJobMessage(uploadJob.getId(), command.getUserId());
+            log.debug("Published upload job message to SQS: jobId={}", uploadJob.getId());
+        } catch (Exception e) {
+            log.error("Failed to publish upload job message to SQS: jobId={}", uploadJob.getId(), e);
+            // Don't fail the request if SQS publishing fails
+            // The message can be published later or processed synchronously
+        }
         
         // Get expiration time from first presigned URL (all expire at same time)
         Instant expiresAt = photoResponses.isEmpty() 

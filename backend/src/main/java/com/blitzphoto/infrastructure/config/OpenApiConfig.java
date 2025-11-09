@@ -19,15 +19,15 @@ import org.springframework.context.annotation.Configuration;
 public class OpenApiConfig {
 
     @Bean
-    public OpenAPI rapidPhotoOpenAPI() {
+    public OpenAPI blitzPhotoOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("RapidPhotoUpload API")
-                        .description("High-performance photo upload system supporting 100 concurrent uploads")
+                        .title("BlitzPhoto API")
+                        .description("Lightning-fast photo upload system supporting 100 concurrent uploads with Blitz Speed")
                         .version("v1.0.0")
                         .contact(new Contact()
-                                .name("RapidPhoto Team")
-                                .email("team@rapidphoto.com"))
+                                .name("BlitzPhoto Team")
+                                .email("team@blitzphoto.com"))
                         .license(new License()
                                 .name("MIT License")
                                 .url("https://opensource.org/licenses/MIT")))

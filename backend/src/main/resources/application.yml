@@ -119,6 +119,12 @@ blitzphoto:
       allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
       allowed-headers: "*"
       allow-credentials: true
+  
+  image:
+    thumbnail:
+      width: 300
+      height: 300
+      quality: 0.85
 
 # Logging
 logging:

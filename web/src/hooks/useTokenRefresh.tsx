@@ -11,7 +11,7 @@ import { env } from '../config/env';
  */
 export function useTokenRefresh() {
   const { accessToken, refreshToken, isAuthenticated, setAuth } = useAuth();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated || !accessToken || !refreshToken) {

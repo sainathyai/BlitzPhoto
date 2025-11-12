@@ -41,10 +41,8 @@ export function useSessionCheck() {
                 refreshToken,
               });
 
-              const authResponse = response.data;
-
               // Update auth - this will be handled by setAuth
-              // For now, just log - the token refresh hook will handle it
+              // The token refresh hook will handle the actual update
               console.log('[Session Check] Token refreshed');
             } catch (error) {
               // Refresh failed - clear auth and redirect

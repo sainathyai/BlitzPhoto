@@ -37,7 +37,7 @@ export function useSessionCheck() {
         if (currentTime >= expirationTime) {
           if (refreshToken) {
             try {
-              const response = await apiClient.post(`${env.apiUrl}/auth/refresh`, {
+              await apiClient.post(`${env.apiUrl}/auth/refresh`, {
                 refreshToken,
               });
 

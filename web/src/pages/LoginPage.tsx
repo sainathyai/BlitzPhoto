@@ -36,14 +36,18 @@ export default function LoginPage() {
     try {
       const response = await apiClient.post<AuthResponse>('/auth/login', formData);
       setAuth(response.data);
-      navigate(from, { replace: true });
+      
+      // Small delay to ensure auth state is fully set before navigation
+      // This prevents race conditions with route guards
+      setTimeout(() => {
+        navigate(from, { replace: true });
+      }, 50);
     } catch (err) {
       const message =
         err instanceof AxiosError
           ? (err.response?.data as { message?: string } | undefined)?.message
           : undefined;
       setError(message || 'Login failed. Please check your credentials.');
-    } finally {
       setIsLoading(false);
     }
   };

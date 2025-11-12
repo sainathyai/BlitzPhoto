@@ -1,21 +1,26 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './useAuth';
 import apiClient from '../lib/axios';
 import { env } from '../config/env';
+import { useAuthStore } from '../store/authStore';
 
 /**
  * useSessionCheck Hook
  * 
- * Validates the session on mount and when auth state changes.
- * Redirects to login if session is invalid.
+ * Validates the session on app load and periodically.
+ * Only runs validation, doesn't redirect (redirects are handled by ProtectedRoute).
+ * This prevents race conditions after login.
  */
 export function useSessionCheck() {
-  const { isAuthenticated, accessToken, refreshToken, clearAuth } = useAuth();
+  const { isAuthenticated, accessToken, refreshToken } = useAuth();
   const navigate = useNavigate();
+  const hasCheckedRef = useRef(false);
 
   useEffect(() => {
-    if (!isAuthenticated || !accessToken) {
+    // Only check once on mount, not on every auth state change
+    // This prevents clearing auth immediately after login
+    if (hasCheckedRef.current || !isAuthenticated || !accessToken) {
       return;
     }
 
@@ -24,7 +29,8 @@ export function useSessionCheck() {
         // Check if access token is expired
         const tokenParts = accessToken.split('.');
         if (tokenParts.length !== 3) {
-          clearAuth();
+          console.warn('[Session Check] Invalid token format');
+          useAuthStore.getState().clearAuth();
           navigate('/login');
           return;
         }
@@ -37,34 +43,39 @@ export function useSessionCheck() {
         if (currentTime >= expirationTime) {
           if (refreshToken) {
             try {
-              await apiClient.post(`${env.apiUrl}/auth/refresh`, {
+              const response = await apiClient.post(`${env.apiUrl}/auth/refresh`, {
                 refreshToken,
               });
 
-              // Update auth - this will be handled by setAuth
-              // The token refresh hook will handle the actual update
+              // Update auth store with new tokens
+              useAuthStore.getState().setAuth(response.data);
               console.log('[Session Check] Token refreshed');
             } catch (error) {
               // Refresh failed - clear auth and redirect
               console.error('[Session Check] Token refresh failed:', error);
-              clearAuth();
+              useAuthStore.getState().clearAuth();
               navigate('/login');
             }
           } else {
             // No refresh token - clear auth and redirect
-            clearAuth();
+            console.warn('[Session Check] No refresh token available');
+            useAuthStore.getState().clearAuth();
             navigate('/login');
           }
         }
       } catch (error) {
         console.error('[Session Check] Error validating session:', error);
         // If we can't parse the token, it's invalid
-        clearAuth();
+        useAuthStore.getState().clearAuth();
         navigate('/login');
+      } finally {
+        hasCheckedRef.current = true;
       }
     };
 
-    validateSession();
-  }, [isAuthenticated, accessToken, refreshToken, clearAuth, navigate]);
+    // Small delay to ensure auth state is fully set after login
+    const timeoutId = setTimeout(validateSession, 100);
+    return () => clearTimeout(timeoutId);
+  }, []); // Only run once on mount
 }
 

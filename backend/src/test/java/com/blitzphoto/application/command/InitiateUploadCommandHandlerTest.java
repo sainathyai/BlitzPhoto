@@ -67,7 +67,7 @@ class InitiateUploadCommandHandlerTest {
                 .id(userId)
                 .email("test@example.com")
                 .username("testuser")
-                .isActive(true)
+                .active(true)
                 .build();
 
         photo = Photo.builder()

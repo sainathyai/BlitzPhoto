@@ -41,9 +41,11 @@ export default function UploadDropzone({
     maxFiles,
   });
 
+  const rootProps = getRootProps();
+
   return (
-    <motion.div
-      {...getRootProps()}
+    <div
+      {...rootProps}
       className={cn(
         'border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors',
         isDragActive
@@ -51,8 +53,6 @@ export default function UploadDropzone({
           : 'border-gray-300 hover:border-primary/50',
         disabled && 'opacity-50 cursor-not-allowed'
       )}
-      whileHover={!disabled ? { scale: 1.01 } : {}}
-      whileTap={!disabled ? { scale: 0.99 } : {}}
     >
       <input {...getInputProps()} />
       <div className="space-y-4">
@@ -86,7 +86,7 @@ export default function UploadDropzone({
           </p>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 

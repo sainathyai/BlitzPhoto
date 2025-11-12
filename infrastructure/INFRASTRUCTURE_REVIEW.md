@@ -149,7 +149,7 @@ Before running `terraform apply`, verify:
 - [ ] AWS account created
 - [ ] AWS CLI installed: `aws --version`
 - [ ] AWS credentials configured: `aws sts get-caller-identity`
-- [ ] Correct region set: `aws configure get region` (should be us-east-1)
+- [ ] Correct region set: `aws configure get region` (should be us-west-2)
 
 ### Terraform Setup
 - [ ] Terraform installed: `terraform --version` (should be 1.0+)
@@ -200,7 +200,7 @@ nano terraform.tfvars
 
 **Minimum required changes in `terraform.tfvars`:**
 ```hcl
-aws_region  = "us-east-1"
+aws_region  = "us-west-2"
 environment = "dev"
 project_name = "rapidphoto"
 

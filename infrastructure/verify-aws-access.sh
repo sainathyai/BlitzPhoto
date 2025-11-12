@@ -44,7 +44,7 @@ if ! aws sts get-caller-identity &> /dev/null; then
     echo "You'll need:"
     echo "  - AWS Access Key ID"
     echo "  - AWS Secret Access Key"
-    echo "  - Region (recommend: us-east-1)"
+    echo "  - Region (recommend: us-west-2)"
     exit 1
 fi
 
@@ -63,7 +63,7 @@ echo "   User ID: $USER_ID"
 REGION=$(aws configure get region)
 if [ -z "$REGION" ]; then
     echo -e "${YELLOW}⚠️  No default region set${NC}"
-    echo "   Run: aws configure set region us-east-1"
+    echo "   Run: aws configure set region us-west-2"
 else
     echo -e "${GREEN}✅ Region set:${NC} $REGION"
 fi
@@ -72,7 +72,7 @@ echo ""
 echo "🔍 Testing AWS service access..."
 
 # Test VPC access
-if aws ec2 describe-vpcs --region ${REGION:-us-east-1} --max-items 1 &> /dev/null; then
+if aws ec2 describe-vpcs --region ${REGION:-us-west-2} --max-items 1 &> /dev/null; then
     echo -e "${GREEN}✅ VPC access${NC}"
 else
     echo -e "${RED}❌ VPC access denied${NC}"
@@ -80,7 +80,7 @@ else
 fi
 
 # Test RDS access
-if aws rds describe-db-instances --region ${REGION:-us-east-1} --max-items 1 &> /dev/null; then
+if aws rds describe-db-instances --region ${REGION:-us-west-2} --max-items 1 &> /dev/null; then
     echo -e "${GREEN}✅ RDS access${NC}"
 else
     echo -e "${RED}❌ RDS access denied${NC}"
@@ -96,7 +96,7 @@ else
 fi
 
 # Test SQS access
-if aws sqs list-queues --region ${REGION:-us-east-1} &> /dev/null; then
+if aws sqs list-queues --region ${REGION:-us-west-2} &> /dev/null; then
     echo -e "${GREEN}✅ SQS access${NC}"
 else
     echo -e "${RED}❌ SQS access denied${NC}"
@@ -111,7 +111,7 @@ else
 fi
 
 # Test CloudWatch Logs access
-if aws logs describe-log-groups --region ${REGION:-us-east-1} --max-items 1 &> /dev/null; then
+if aws logs describe-log-groups --region ${REGION:-us-west-2} --max-items 1 &> /dev/null; then
     echo -e "${GREEN}✅ CloudWatch Logs access${NC}"
 else
     echo -e "${RED}❌ CloudWatch Logs access denied${NC}"
@@ -121,8 +121,8 @@ fi
 echo ""
 echo "💰 Checking billing alerts (recommended)..."
 
-if aws cloudwatch describe-alarms --region us-east-1 --alarm-name-prefix "BillingAlert" --max-items 1 &> /dev/null; then
-    ALARMS=$(aws cloudwatch describe-alarms --region us-east-1 --alarm-name-prefix "BillingAlert" --query 'MetricAlarms[*].AlarmName' --output text)
+if aws cloudwatch describe-alarms --region us-west-2 --alarm-name-prefix "BillingAlert" --max-items 1 &> /dev/null; then
+    ALARMS=$(aws cloudwatch describe-alarms --region us-west-2 --alarm-name-prefix "BillingAlert" --query 'MetricAlarms[*].AlarmName' --output text)
     if [ -n "$ALARMS" ]; then
         echo -e "${GREEN}✅ Billing alarms configured${NC}"
     else

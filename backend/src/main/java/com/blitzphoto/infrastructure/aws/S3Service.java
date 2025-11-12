@@ -2,18 +2,26 @@ package com.blitzphoto.infrastructure.aws;
 
 import com.blitzphoto.domain.model.PresignedUrl;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.Delete;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * S3 Service
@@ -26,6 +34,7 @@ import java.util.UUID;
 public class S3Service {
 
     private final S3Presigner s3Presigner;
+    private final S3Client s3Client;
 
     @Value("${blitzphoto.aws.s3.uploads-bucket}")
     private String uploadsBucket;
@@ -156,6 +165,47 @@ public class S3Service {
     }
 
     /**
+     * Generate presigned URL for photo download
+     * 
+     * @param s3Key Photo S3 key
+     * @return Presigned URL value object
+     */
+    public PresignedUrl generatePresignedPhotoUrl(String s3Key) {
+        log.debug("Generating presigned photo URL: {}", s3Key);
+
+        software.amazon.awssdk.services.s3.model.GetObjectRequest getObjectRequest = 
+                software.amazon.awssdk.services.s3.model.GetObjectRequest.builder()
+                        .bucket(uploadsBucket)
+                        .key(s3Key)
+                        .build();
+
+        software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest presignedRequest = 
+                s3Presigner.presignGetObject(
+                        software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest.builder()
+                                .signatureDuration(Duration.ofMinutes(60)) // Photos valid for 1 hour
+                                .getObjectRequest(getObjectRequest)
+                                .build()
+                );
+
+        String presignedUrl = presignedRequest.url().toString();
+        
+        // Use Transfer Acceleration endpoint if enabled
+        if (presignedUrl.contains("s3.amazonaws.com")) {
+            presignedUrl = presignedUrl.replace("s3.amazonaws.com", "s3-accelerate.amazonaws.com");
+        }
+
+        Instant expiresAt = Instant.now().plus(Duration.ofMinutes(60));
+
+        return new PresignedUrl(
+                presignedUrl,
+                expiresAt,
+                "GET",
+                null, // Content type varies by photo
+                null
+        );
+    }
+
+    /**
      * Generate presigned URL for thumbnail download
      * 
      * @param thumbnailS3Key Thumbnail S3 key
@@ -194,6 +244,66 @@ public class S3Service {
                 "image/jpeg", // Thumbnails are JPEG
                 null
         );
+    }
+
+    /**
+     * Delete photo objects from the uploads bucket.
+     *
+     * @param keys S3 object keys to delete.
+     * @return Keys that failed to delete.
+     */
+    public List<String> deleteUploadObjects(List<String> keys) {
+        return deleteObjects(uploadsBucket, keys);
+    }
+
+    /**
+     * Delete thumbnail objects from the thumbnails bucket.
+     *
+     * @param keys S3 object keys to delete.
+     * @return Keys that failed to delete.
+     */
+    public List<String> deleteThumbnailObjects(List<String> keys) {
+        return deleteObjects(thumbnailsBucket, keys);
+    }
+
+    private List<String> deleteObjects(String bucket, List<String> keys) {
+        if (keys == null || keys.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<ObjectIdentifier> objects = keys.stream()
+                .filter(key -> key != null && !key.isBlank())
+                .distinct()
+                .map(key -> ObjectIdentifier.builder().key(key).build())
+                .collect(Collectors.toList());
+
+        if (objects.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        try {
+            DeleteObjectsRequest request = DeleteObjectsRequest.builder()
+                    .bucket(bucket)
+                    .delete(Delete.builder().objects(objects).build())
+                    .build();
+
+            DeleteObjectsResponse response = s3Client.deleteObjects(request);
+
+            if (response.hasErrors()) {
+                return response.errors().stream()
+                        .peek(error -> log.error("Failed to delete object {} from {}: {}", error.key(), bucket, error.message()))
+                        .map(error -> error.key())
+                        .collect(Collectors.toList());
+            }
+
+            return Collections.emptyList();
+        } catch (S3Exception e) {
+            log.error("S3Exception deleting objects from bucket {}: {}", bucket, e.awsErrorDetails().errorMessage(), e);
+            return keys;
+        } catch (Exception e) {
+            log.error("Unexpected error deleting objects from bucket {}", bucket, e);
+            return keys;
+        }
     }
 
     /**
@@ -247,7 +357,7 @@ public class S3Service {
      * 
      * Contains both the S3 key and the presigned URL.
      */
-    @Value
+    @lombok.Value
     public static class PresignedUrlResult {
         String s3Key;
         PresignedUrl presignedUrl;

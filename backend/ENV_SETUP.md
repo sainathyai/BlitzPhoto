@@ -37,7 +37,7 @@ DB_PASSWORD=your-database-password-here
 ### AWS Configuration
 
 ```properties
-AWS_REGION=us-east-1
+AWS_REGION=us-west-2
 AWS_ACCESS_KEY_ID=your-access-key  # Or use IAM role
 AWS_SECRET_ACCESS_KEY=your-secret-key  # Or use IAM role
 ```
@@ -71,7 +71,7 @@ terraform output sqs_upload_queue_url
 Set in `.env`:
 
 ```properties
-SQS_UPLOAD_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/123456789012/rapidphoto-upload-queue-dev
+SQS_UPLOAD_QUEUE_URL=https://sqs.us-west-2.amazonaws.com/123456789012/rapidphoto-upload-queue-dev
 ```
 
 ### JWT Security
@@ -116,14 +116,14 @@ SPRING_PROFILES_ACTIVE=dev
 SERVER_PORT=8080
 
 # Database
-DB_HOST=rapidphoto-db-dev.abcdefg.us-east-1.rds.amazonaws.com
+DB_HOST=rapidphoto-db-dev.abcdefg.us-west-2.rds.amazonaws.com
 DB_PORT=5432
 DB_NAME=rapidphoto
 DB_USERNAME=rapidphoto_admin
 DB_PASSWORD=MyStr0ng!Password123
 
 # AWS
-AWS_REGION=us-east-1
+AWS_REGION=us-west-2
 # AWS_ACCESS_KEY_ID=AKIAxxxxxxxxxxxxx  # Optional: Use IAM role instead
 # AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxx  # Optional: Use IAM role instead
 
@@ -132,7 +132,7 @@ S3_UPLOADS_BUCKET=rapidphoto-uploads-dev-123456789012
 S3_THUMBNAILS_BUCKET=rapidphoto-thumbnails-dev-123456789012
 
 # SQS
-SQS_UPLOAD_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/123456789012/rapidphoto-upload-queue-dev
+SQS_UPLOAD_QUEUE_URL=https://sqs.us-west-2.amazonaws.com/123456789012/rapidphoto-upload-queue-dev
 
 # JWT
 JWT_SECRET=bXlTdXBlclNlY3JldEtleUZvckpXVFRva2VuQXRMZWFzdDMyQ2hhcnM=

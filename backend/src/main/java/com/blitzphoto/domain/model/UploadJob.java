@@ -21,6 +21,7 @@ import java.util.UUID;
 @Table(name = "upload_jobs")
 @EntityListeners(AuditingEntityListener.class)
 @Getter
+@Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
@@ -30,7 +31,7 @@ public class UploadJob {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false)
+    @Column(name = "user_id", nullable = false)
     private UUID userId;
 
     @Column(nullable = false)
@@ -43,13 +44,14 @@ public class UploadJob {
     private List<Photo> photos = new ArrayList<>();
 
     @CreatedDate
-    @Column(nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     @LastModifiedDate
-    @Column(nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "completed_at")
     private Instant completedAt;
 
     /**

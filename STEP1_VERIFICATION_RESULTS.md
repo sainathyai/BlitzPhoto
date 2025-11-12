@@ -14,7 +14,7 @@
 - **ARN:** arn:aws:iam::971422717446:user/sainatha.yatham@gmail.com
 
 ### ✅ AWS Region Set
-- **Region:** us-east-1 (Perfect for our setup!)
+- **Region:** us-west-2 (Perfect for our setup!)
 
 ### ✅ AWS Service Permissions
 - ✅ **VPC access** - Can create networks
@@ -85,7 +85,7 @@ terraform --version
 |-------|--------|---------|
 | AWS CLI | ✅ Installed | Version 2.31.27 |
 | AWS Credentials | ✅ Valid | Account 971422717446 |
-| AWS Region | ✅ Set | us-east-1 |
+| AWS Region | ✅ Set | us-west-2 |
 | VPC Permissions | ✅ OK | Can create networks |
 | RDS Permissions | ✅ OK | Can create databases |
 | S3 Permissions | ✅ OK | Can create buckets |

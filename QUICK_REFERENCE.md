@@ -187,12 +187,12 @@ DB_USERNAME=admin
 DB_PASSWORD=<from-secrets-manager>
 
 # AWS
-AWS_REGION=us-east-1
+AWS_REGION=us-west-2
 AWS_ACCESS_KEY_ID=<iam-role-or-access-key>
 AWS_SECRET_ACCESS_KEY=<from-secrets-manager>
 S3_BUCKET_NAME=rapidphoto-uploads
 S3_THUMBNAIL_BUCKET=rapidphoto-thumbnails
-SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/.../upload-queue
+SQS_QUEUE_URL=https://sqs.us-west-2.amazonaws.com/.../upload-queue
 
 # JWT
 JWT_SECRET=<from-secrets-manager>
@@ -209,7 +209,7 @@ MAX_CONCURRENT_UPLOADS=100
 ```properties
 VITE_API_BASE_URL=http://localhost:8080
 VITE_WS_URL=ws://localhost:8080/ws
-VITE_AWS_REGION=us-east-1
+VITE_AWS_REGION=us-west-2
 VITE_S3_BUCKET=rapidphoto-uploads
 VITE_CLOUDFRONT_URL=https://d1234567890.cloudfront.net
 ```
@@ -218,7 +218,7 @@ VITE_CLOUDFRONT_URL=https://d1234567890.cloudfront.net
 ```properties
 API_BASE_URL=https://api.rapidphoto.com
 WS_URL=wss://api.rapidphoto.com/ws
-AWS_REGION=us-east-1
+AWS_REGION=us-west-2
 S3_BUCKET=rapidphoto-uploads
 ```
 
@@ -399,14 +399,14 @@ spring.datasource.hikari.connection-timeout=30000
 docker build -t rapidphoto-backend .
 
 # 2. Tag image
-docker tag rapidphoto-backend:latest <account-id>.dkr.ecr.us-east-1.amazonaws.com/rapidphoto-backend:latest
+docker tag rapidphoto-backend:latest <account-id>.dkr.ecr.us-west-2.amazonaws.com/rapidphoto-backend:latest
 
 # 3. Login to ECR
-aws ecr get-login-password --region us-east-1 | \
-  docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
+aws ecr get-login-password --region us-west-2 | \
+  docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-west-2.amazonaws.com
 
 # 4. Push image
-docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/rapidphoto-backend:latest
+docker push <account-id>.dkr.ecr.us-west-2.amazonaws.com/rapidphoto-backend:latest
 
 # 5. Update ECS service
 aws ecs update-service \

@@ -1,14 +1,23 @@
 package com.blitzphoto.api.upload;
 
+import com.blitzphoto.application.command.CompleteUploadCommand;
+import com.blitzphoto.application.command.CompleteUploadCommandHandler;
+import com.blitzphoto.application.command.DeletePhotosCommand;
+import com.blitzphoto.application.command.DeletePhotosCommandHandler;
 import com.blitzphoto.application.command.InitiateUploadCommand;
 import com.blitzphoto.application.command.InitiateUploadCommandHandler;
 import com.blitzphoto.application.dto.*;
+import com.blitzphoto.application.messaging.UploadJobMessageHandler;
 import com.blitzphoto.application.query.GetPhotosQuery;
 import com.blitzphoto.application.query.GetPhotosQueryHandler;
 import com.blitzphoto.application.query.GetUploadJobQuery;
 import com.blitzphoto.application.query.GetUploadJobQueryHandler;
 import com.blitzphoto.domain.model.Photo;
 import com.blitzphoto.domain.model.UploadJob;
+import com.blitzphoto.domain.model.User;
+import com.blitzphoto.domain.repository.UserRepository;
+import com.blitzphoto.infrastructure.aws.S3Service;
+import com.blitzphoto.infrastructure.aws.SqsService;
 import com.blitzphoto.shared.exception.ResourceNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -19,6 +28,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -38,8 +50,14 @@ import java.util.stream.Collectors;
 public class UploadController {
 
     private final InitiateUploadCommandHandler initiateUploadCommandHandler;
+    private final CompleteUploadCommandHandler completeUploadCommandHandler;
+    private final DeletePhotosCommandHandler deletePhotosCommandHandler;
     private final GetUploadJobQueryHandler getUploadJobQueryHandler;
     private final GetPhotosQueryHandler getPhotosQueryHandler;
+    private final S3Service s3Service;
+    private final SqsService sqsService;
+    private final UploadJobMessageHandler uploadJobMessageHandler;
+    private final UserRepository userRepository;
 
     /**
      * Initiate a photo upload job
@@ -71,6 +89,39 @@ public class UploadController {
         InitiateUploadResponse response = initiateUploadCommandHandler.handle(command);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Complete an upload job
+     * 
+     * Called after all files have been uploaded to S3. This triggers async processing
+     * of the uploaded photos (thumbnail generation, metadata extraction, etc.).
+     * 
+     * @param request Complete upload request with upload job ID and user ID
+     * @return CompleteUploadResponse
+     */
+    @PostMapping("/complete")
+    @Operation(
+            summary = "Complete upload job",
+            description = "Marks an upload job as complete after files have been uploaded to S3. " +
+                    "This triggers async processing of the uploaded photos."
+    )
+    public ResponseEntity<CompleteUploadResponse> completeUpload(
+            @Valid @RequestBody CompleteUploadRequest request
+    ) {
+        log.info("Completing upload job {} for user {}", 
+                request.uploadJobId(), request.userId());
+
+        // Convert request to command
+        CompleteUploadCommand command = CompleteUploadCommand.builder()
+                .uploadJobId(request.uploadJobId())
+                .userId(request.userId())
+                .build();
+
+        // Handle command
+        CompleteUploadResponse response = completeUploadCommandHandler.handle(command);
+
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -147,6 +198,7 @@ public class UploadController {
      * Get user photos
      * 
      * Returns paginated list of photos for a user.
+     * Users can only access their own photos.
      * 
      * @param userId User ID
      * @param page Page number (0-based)
@@ -158,20 +210,44 @@ public class UploadController {
     @GetMapping("/photos")
     @Operation(
             summary = "Get user photos",
-            description = "Returns paginated list of photos for a user."
+            description = "Returns paginated list of photos for a user. Users can only access their own photos."
     )
     public ResponseEntity<Page<PhotoStatusResponse>> getUserPhotos(
-            @Parameter(description = "User ID") @RequestParam UUID userId,
+            @Parameter(description = "User ID (optional, defaults to current user)") @RequestParam(required = false) String userId,
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
             @Parameter(description = "Sort field") @RequestParam(defaultValue = "createdAt") String sortBy,
             @Parameter(description = "Sort direction (ASC/DESC)") @RequestParam(defaultValue = "DESC") String sortDirection
     ) {
-        log.debug("Getting photos for user: userId={}, page={}, size={}", userId, page, size);
+        // Get current authenticated user
+        UUID currentUserId = getCurrentUserId();
+        
+        // If userId is not provided, use current user's ID
+        UUID targetUserId;
+        if (userId != null && !userId.isBlank()) {
+            try {
+                targetUserId = UUID.fromString(userId);
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid userId format: {}", userId);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
+        } else {
+            targetUserId = currentUserId;
+        }
+
+        log.debug("Getting photos for user: requestedUserId={}, currentUserId={}, targetUserId={}, page={}, size={}", 
+                userId, currentUserId, targetUserId, page, size);
+
+        // Authorization: users can only view their own photos
+        if (!currentUserId.equals(targetUserId)) {
+            log.warn("User {} attempted to access photos for user {}", currentUserId, targetUserId);
+            // Return 401 (Unauthorized) instead of 403 (Forbidden) to avoid CloudFront converting to HTML
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
 
         // Create query
         GetPhotosQuery query = GetPhotosQuery.builder()
-                .userId(userId)
+                .userId(targetUserId)
                 .page(page)
                 .size(size)
                 .sortBy(sortBy)
@@ -185,6 +261,56 @@ public class UploadController {
         Page<PhotoStatusResponse> response = photos.map(this::toPhotoStatusResponse);
 
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Delete multiple photos for the current user.
+     *
+     * @param request Bulk delete request containing photo IDs.
+     * @return Bulk delete response with per-photo results.
+     */
+    @DeleteMapping("/photos")
+    @Operation(
+            summary = "Delete photos",
+            description = "Deletes one or more photos owned by the authenticated user."
+    )
+    public ResponseEntity<DeletePhotosResponse> deletePhotos(
+            @Valid @RequestBody DeletePhotosRequest request
+    ) {
+        UUID currentUserId = getCurrentUserId();
+
+        DeletePhotosCommand command = DeletePhotosCommand.builder()
+                .userId(currentUserId)
+                .photoIds(request.photoIds())
+                .build();
+
+        DeletePhotosResponse response = deletePhotosCommandHandler.handle(command);
+
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Get current authenticated user ID
+     * 
+     * @return Current user ID
+     * @throws org.springframework.security.access.AccessDeniedException if user is not authenticated
+     */
+    private UUID getCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new org.springframework.security.access.AccessDeniedException("User is not authenticated");
+        }
+        
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserDetails userDetails) {
+            // Load user by username (email) to get the user ID
+            User user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userDetails.getUsername()));
+            return user.getId();
+        }
+        
+        throw new org.springframework.security.access.AccessDeniedException("Unable to determine current user");
     }
 
     /**
@@ -230,6 +356,16 @@ public class UploadController {
      * Convert Photo to PhotoStatusResponse
      */
     private PhotoStatusResponse toPhotoStatusResponse(Photo photo) {
+        // Generate presigned URL for photo access
+        String photoUrl = null;
+        if (photo.getS3Key() != null && photo.getStatus() == Photo.UploadStatus.COMPLETED) {
+            try {
+                photoUrl = s3Service.generatePresignedPhotoUrl(photo.getS3Key()).getUrl();
+            } catch (Exception e) {
+                log.warn("Failed to generate presigned URL for photo {}: {}", photo.getId(), e.getMessage());
+            }
+        }
+        
         return PhotoStatusResponse.builder()
                 .photoId(photo.getId())
                 .fileName(photo.getFileName())
@@ -237,9 +373,10 @@ public class UploadController {
                 .fileSize(photo.getFileSize())
                 .status(photo.getStatus().name())
                 .s3Key(photo.getS3Key())
+                .photoUrl(photoUrl)
                 .errorMessage(photo.getErrorMessage())
                 .uploadedAt(photo.getUploadedAt())
-                .processedAt(photo.getProcessedAt())
+                .processedAt(photo.getUploadedAt()) // Use uploadedAt as processedAt since processing happens during upload completion
                 .createdAt(photo.getCreatedAt())
                 .build();
     }

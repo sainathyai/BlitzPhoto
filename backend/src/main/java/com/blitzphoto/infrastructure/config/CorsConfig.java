@@ -18,7 +18,7 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
-    @Value("${blitzphoto.security.cors.allowed-origins}")
+    @Value("${blitzphoto.security.cors.allowed-origins:${CORS_ALLOWED_ORIGINS:http://localhost:5173}}")
     private String allowedOrigins;
 
     @Value("${blitzphoto.security.cors.allowed-methods}")
@@ -35,8 +35,12 @@ public class CorsConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         
         // Parse allowed origins
-        List<String> origins = Arrays.asList(allowedOrigins.split(","));
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toList();
         configuration.setAllowedOrigins(origins);
+        configuration.setAllowedOriginPatterns(origins);
         
         // Parse allowed methods
         List<String> methods = Arrays.asList(allowedMethods.split(","));
@@ -51,6 +55,8 @@ public class CorsConfig {
         }
         
         configuration.setAllowCredentials(allowCredentials);
+        configuration.addAllowedHeader(CorsConfiguration.ALL);
+        configuration.addExposedHeader("Authorization");
         configuration.setMaxAge(3600L);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

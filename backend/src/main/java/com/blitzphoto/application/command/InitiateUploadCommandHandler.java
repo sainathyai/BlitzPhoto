@@ -107,15 +107,8 @@ public class InitiateUploadCommandHandler {
         // Save upload job with updated photos
         uploadJob = uploadJobRepository.save(uploadJob);
         
-        // Publish message to SQS for async processing
-        try {
-            sqsService.publishUploadJobMessage(uploadJob.getId(), command.getUserId());
-            log.debug("Published upload job message to SQS: jobId={}", uploadJob.getId());
-        } catch (Exception e) {
-            log.error("Failed to publish upload job message to SQS: jobId={}", uploadJob.getId(), e);
-            // Don't fail the request if SQS publishing fails
-            // The message can be published later or processed synchronously
-        }
+        // Note: SQS message will be sent after files are uploaded to S3
+        // This is triggered by the frontend calling the complete upload endpoint
         
         // Get expiration time from first presigned URL (all expire at same time)
         Instant expiresAt = photoResponses.isEmpty() 

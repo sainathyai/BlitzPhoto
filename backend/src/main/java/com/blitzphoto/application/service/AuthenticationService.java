@@ -143,11 +143,19 @@ public class AuthenticationService {
      * @return Auth response
      */
     private AuthResponse generateAuthResponse(User user) {
+        // Create UserDetails for token generation
+        org.springframework.security.core.userdetails.User userDetails = 
+                new org.springframework.security.core.userdetails.User(
+                        user.getEmail(),
+                        user.getPasswordHash(),
+                        List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                );
+
         // Create authentication for token generation
         Authentication authentication = new UsernamePasswordAuthenticationToken(
-                user.getEmail(),
+                userDetails,
                 null,
-                List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                userDetails.getAuthorities()
         );
 
         String accessToken = tokenProvider.generateAccessToken(authentication);

@@ -5,11 +5,17 @@
  */
 
 import { useState, useCallback } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '../services/api';
 import { useUploadStore } from '../store/uploadStore';
 import { useAuth } from './useAuth';
-import type { InitiateUploadRequest, InitiateUploadResponse, PhotoUploadRequest } from '../types/api.types';
+import type { 
+  InitiateUploadRequest, 
+  InitiateUploadResponse, 
+  PhotoUploadRequest,
+  CompleteUploadRequest,
+  CompleteUploadResponse
+} from '../types/api.types';
 import { env } from '../constants/env';
 import { Alert } from 'react-native';
 
@@ -25,6 +31,7 @@ export interface FileUploadState {
 export function useFileUpload() {
   const { user } = useAuth();
   const { setCurrentUploadJob, setIsUploading } = useUploadStore();
+  const queryClient = useQueryClient();
   const [uploadStates, setUploadStates] = useState<Map<string, FileUploadState>>(new Map());
 
   // Mutation for initiating upload
@@ -80,65 +87,95 @@ export function useFileUpload() {
     uploadResponse: InitiateUploadResponse,
     photos: Array<{ uri: string; name: string; type: string; size: number }>
   ) => {
-    const uploadPromises = uploadResponse.photos.map(async (photo, index) => {
-      const photoData = photos[index];
-      const state = uploadStates.get(photoData.uri);
+    const uploadResults = await Promise.allSettled(
+      uploadResponse.photos.map(async (photo, index) => {
+        const photoData = photos[index];
+        const state = uploadStates.get(photoData.uri);
 
-      try {
-        // Update state to uploading
-        setUploadStates((prev) => {
-          const newMap = new Map(prev);
-          const current = newMap.get(photoData.uri);
-          if (current) {
-            newMap.set(photoData.uri, { ...current, status: 'uploading', progress: 0 });
-          }
-          return newMap;
-        });
+        try {
+          // Update state to uploading
+          setUploadStates((prev) => {
+            const newMap = new Map(prev);
+            const current = newMap.get(photoData.uri);
+            if (current) {
+              newMap.set(photoData.uri, { ...current, status: 'uploading', progress: 0 });
+            }
+            return newMap;
+          });
 
-        // Convert local URI to blob for upload
-        const response = await fetch(photoData.uri);
-        const blob = await response.blob();
+          // Convert local URI to blob for upload
+          const response = await fetch(photoData.uri);
+          const blob = await response.blob();
 
-        // Upload to S3
+          // Upload to S3
         const uploadResponse = await fetch(photo.presignedUrl.url, {
           method: 'PUT',
           body: blob,
           headers: {
             'Content-Type': photo.presignedUrl.contentType,
+            'x-amz-server-side-encryption': 'AES256',
           },
         });
 
-        if (!uploadResponse.ok) {
-          throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+          if (!uploadResponse.ok) {
+            throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+          }
+
+          // Update state to completed
+          setUploadStates((prev) => {
+            const newMap = new Map(prev);
+            const current = newMap.get(photoData.uri);
+            if (current) {
+              newMap.set(photoData.uri, { ...current, status: 'completed', progress: 100 });
+            }
+            return newMap;
+          });
+          
+          return { success: true, photoId: photo.photoId };
+        } catch (error) {
+          // Update state to failed
+          setUploadStates((prev) => {
+            const newMap = new Map(prev);
+            const current = newMap.get(photoData.uri);
+            if (current) {
+              newMap.set(photoData.uri, {
+                ...current,
+                status: 'failed',
+                error: error instanceof Error ? error.message : 'Upload failed',
+              });
+            }
+            return newMap;
+          });
+          
+          return { success: false, photoId: photo.photoId, error };
         }
+      })
+    );
 
-        // Update state to completed
-        setUploadStates((prev) => {
-          const newMap = new Map(prev);
-          const current = newMap.get(photoData.uri);
-          if (current) {
-            newMap.set(photoData.uri, { ...current, status: 'completed', progress: 100 });
-          }
-          return newMap;
-        });
+    // Check if all uploads succeeded
+    const allCompleted = uploadResults.every(
+      (result) => result.status === 'fulfilled' && result.value.success
+    );
+
+    // Call complete upload endpoint if all uploads succeeded
+    if (allCompleted && uploadResponse.uploadJobId && user) {
+      try {
+        const completeRequest: CompleteUploadRequest = {
+          uploadJobId: uploadResponse.uploadJobId,
+          userId: user.id,
+        };
+
+        await apiClient.post<CompleteUploadResponse>('/uploads/complete', completeRequest);
+        console.log('Upload job completed successfully');
+
+        // Invalidate photos query to refresh the gallery
+        queryClient.invalidateQueries({ queryKey: ['photos'] });
       } catch (error) {
-        // Update state to failed
-        setUploadStates((prev) => {
-          const newMap = new Map(prev);
-          const current = newMap.get(photoData.uri);
-          if (current) {
-            newMap.set(photoData.uri, {
-              ...current,
-              status: 'failed',
-              error: error instanceof Error ? error.message : 'Upload failed',
-            });
-          }
-          return newMap;
-        });
+        console.error('Failed to complete upload job:', error);
+        // Don't fail the entire upload - files are already in S3
       }
-    });
+    }
 
-    await Promise.all(uploadPromises);
     setIsUploading(false);
   };
 

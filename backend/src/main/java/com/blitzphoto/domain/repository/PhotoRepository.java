@@ -58,6 +58,16 @@ public interface PhotoRepository extends JpaRepository<Photo, UUID>, JpaSpecific
     List<Photo> findByUserIdAndStatus(@Param("userId") UUID userId, @Param("status") Photo.UploadStatus status);
 
     /**
+     * Find photos by IDs that belong to a specific user.
+     *
+     * @param photoIds List of photo IDs.
+     * @param userId The user ID the photos should belong to.
+     * @return List of photos owned by the user.
+     */
+    @Query("SELECT p FROM Photo p JOIN p.uploadJob uj WHERE p.id IN :photoIds AND uj.userId = :userId")
+    List<Photo> findByIdsAndUserId(@Param("photoIds") List<UUID> photoIds, @Param("userId") UUID userId);
+
+    /**
      * Count photos by upload job ID
      * 
      * @param uploadJobId The upload job ID

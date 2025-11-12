@@ -1,7 +1,7 @@
 # Copy this file to terraform.tfvars and fill in your values
 # DO NOT commit terraform.tfvars to git!
 
-aws_region  = "us-east-1"
+aws_region  = "us-west-2"
 environment = "dev"
 project_name = "rapidphoto"
 

@@ -9,7 +9,7 @@
 ✅ AWS Credentials: Valid
    └─ Account: 971422717446
    └─ User: sainatha.yatham@gmail.com
-✅ AWS Region: us-east-1
+✅ AWS Region: us-west-2
 ✅ VPC Permissions: OK
 ✅ RDS Permissions: OK
 ✅ S3 Permissions: OK
@@ -126,7 +126,7 @@ I've created these helpful files for you:
 **What's Working:**
 - ✅ AWS CLI configured
 - ✅ Credentials valid
-- ✅ Region set (us-east-1)
+- ✅ Region set (us-west-2)
 - ✅ All permissions OK
 
 **What's Needed:**

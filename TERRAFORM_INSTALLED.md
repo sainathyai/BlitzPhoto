@@ -25,7 +25,7 @@ Added to PATH: ✅ Yes (permanent)
 | **AWS CLI** | ✅ Ready | 2.31.27 | Windows 11 |
 | **Terraform** | ✅ Ready | 1.9.8 | Just installed! |
 | **AWS Credentials** | ✅ Valid | - | Account: 971422717446 |
-| **AWS Region** | ✅ Set | - | us-east-1 |
+| **AWS Region** | ✅ Set | - | us-west-2 |
 | **Permissions** | ✅ OK | - | VPC, RDS, S3, SQS |
 
 ---

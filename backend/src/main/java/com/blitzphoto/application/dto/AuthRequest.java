@@ -1,5 +1,7 @@
 package com.blitzphoto.application.dto;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -23,6 +25,14 @@ public class AuthRequest {
         @NotBlank(message = "Password is required")
         @Size(min = 8, message = "Password must be at least 8 characters")
         String password;
+
+        @JsonCreator
+        public LoginRequest(
+                @JsonProperty("emailOrUsername") String emailOrUsername,
+                @JsonProperty("password") String password) {
+            this.emailOrUsername = emailOrUsername;
+            this.password = password;
+        }
     }
 
     /**
@@ -42,6 +52,16 @@ public class AuthRequest {
         @NotBlank(message = "Password is required")
         @Size(min = 8, message = "Password must be at least 8 characters")
         String password;
+
+        @JsonCreator
+        public RegisterRequest(
+                @JsonProperty("email") String email,
+                @JsonProperty("username") String username,
+                @JsonProperty("password") String password) {
+            this.email = email;
+            this.username = username;
+            this.password = password;
+        }
     }
 
     /**
@@ -52,6 +72,11 @@ public class AuthRequest {
     public static class RefreshTokenRequest {
         @NotBlank(message = "Refresh token is required")
         String refreshToken;
+
+        @JsonCreator
+        public RefreshTokenRequest(@JsonProperty("refreshToken") String refreshToken) {
+            this.refreshToken = refreshToken;
+        }
     }
 }
 

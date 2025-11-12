@@ -42,6 +42,37 @@ export interface InitiateUploadResponse {
   expiresAt: string;
 }
 
+export interface CompleteUploadRequest {
+  uploadJobId: string;
+  userId: string;
+}
+
+export interface CompleteUploadResponse {
+  uploadJobId: string;
+  userId: string;
+  status: string;
+  message: string;
+  completedAt: string;
+}
+
+export type DeleteStatus = 'DELETED' | 'NOT_FOUND' | 'UNAUTHORIZED' | 'FAILED';
+
+export interface DeletePhotosRequest {
+  photoIds: string[];
+}
+
+export interface PhotoDeleteResult {
+  photoId: string;
+  status: DeleteStatus;
+  message: string;
+}
+
+export interface DeletePhotosResponse {
+  requestedCount: number;
+  deletedCount: number;
+  results: PhotoDeleteResult[];
+}
+
 export interface PhotoStatusResponse {
   photoId: string;
   fileName: string;
@@ -49,6 +80,7 @@ export interface PhotoStatusResponse {
   fileSize: number;
   status: string;
   s3Key: string;
+  photoUrl: string | null; // Presigned URL for photo access
   errorMessage: string | null;
   uploadedAt: string | null;
   processedAt: string | null;
@@ -70,7 +102,7 @@ export interface UploadJobStatusResponse {
 }
 
 export interface AuthRequest {
-  email: string;
+  emailOrUsername: string;
   password: string;
 }
 
@@ -83,11 +115,12 @@ export interface RegisterRequest {
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
-  user: {
-    id: string;
-    email: string;
-    username: string;
-  };
+  tokenType: string;
+  expiresIn: number;
+  userId: string;
+  email: string;
+  username: string;
+  issuedAt: string;
   expiresAt: string;
 }
 

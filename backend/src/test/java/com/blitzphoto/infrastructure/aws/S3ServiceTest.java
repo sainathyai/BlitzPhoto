@@ -7,6 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
@@ -17,7 +18,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /**
  * S3Service Test
@@ -31,13 +32,16 @@ class S3ServiceTest {
     private S3Presigner s3Presigner;
 
     @Mock
+    private S3Client s3Client;
+
+    @Mock
     private PresignedPutObjectRequest presignedRequest;
 
     private S3Service s3Service;
 
     @BeforeEach
     void setUp() {
-        s3Service = new S3Service(s3Presigner);
+        s3Service = new S3Service(s3Presigner, s3Client);
         ReflectionTestUtils.setField(s3Service, "uploadsBucket", "test-uploads-bucket");
         ReflectionTestUtils.setField(s3Service, "thumbnailsBucket", "test-thumbnails-bucket");
         ReflectionTestUtils.setField(s3Service, "presignedUrlExpirationMinutes", 15);
@@ -82,10 +86,9 @@ class S3ServiceTest {
         
         URL mockUrl = new URL("https://test-thumbnails-bucket.s3-accelerate.amazonaws.com/" + thumbnailS3Key);
         software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest getRequest = 
-                software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest.builder()
-                        .url(mockUrl)
-                        .build();
+                mock(software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest.class);
         
+        when(getRequest.url()).thenReturn(mockUrl);
         when(s3Presigner.presignGetObject(any(software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest.class)))
                 .thenReturn(getRequest);
 

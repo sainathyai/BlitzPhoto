@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { motion } from 'framer-motion';
 import type { PhotoStatusResponse } from '../../types/api.types';
 import { formatFileSize, formatDate } from '../../lib/utils';
-import { cn } from '../../lib/utils';
 
 interface PhotoCardProps {
   photo: PhotoStatusResponse;
-  onDelete?: (photoId: string) => void;
+  isSelected?: boolean;
+  selectionMode?: boolean;
+  onToggleSelect?: (photoId: string) => void;
 }
 
 /**
@@ -14,9 +15,16 @@ interface PhotoCardProps {
  * 
  * Displays individual photo card with thumbnail, metadata, and actions.
  */
-export default function PhotoCard({ photo, onDelete }: PhotoCardProps) {
+export default function PhotoCard({ photo, isSelected = false, selectionMode = false, onToggleSelect }: PhotoCardProps) {
   const [imageError, setImageError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+
+  const handleToggle = (event?: MouseEvent) => {
+    if (event) {
+      event.stopPropagation();
+    }
+    onToggleSelect?.(photo.photoId);
+  };
 
   const getStatusBadge = () => {
     switch (photo.status) {
@@ -47,18 +55,51 @@ export default function PhotoCard({ photo, onDelete }: PhotoCardProps) {
     }
   };
 
+  const interactiveSelection = selectionMode || isSelected;
+  const cardClasses = [
+    'relative',
+    'overflow-hidden',
+    'rounded-xl',
+    'bg-white',
+    'border',
+    'transition-all',
+    'duration-200',
+    'hover:shadow-xl',
+    isSelected ? 'border-2 border-indigo-500 shadow-lg shadow-indigo-100' : 'border-slate-200 shadow-sm',
+    interactiveSelection ? 'cursor-pointer' : 'cursor-default',
+  ].join(' ');
+
   return (
     <motion.div
-      className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+      className={cardClasses}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       whileHover={{ y: -4 }}
+      onClick={() => {
+        if (interactiveSelection) {
+          onToggleSelect?.(photo.photoId);
+        }
+      }}
     >
+      {/* Selection Checkbox */}
+      <button
+        type="button"
+        onClick={handleToggle}
+        className={`absolute top-3 left-3 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 text-xs font-bold transition ${
+          isSelected
+            ? 'border-indigo-500 bg-indigo-500 text-white shadow-sm shadow-indigo-200'
+            : 'border-slate-300 bg-white text-transparent hover:text-slate-400'
+        }`}
+        aria-pressed={isSelected}
+      >
+        ✓
+      </button>
+
       {/* Thumbnail */}
       <div className="relative aspect-square bg-gray-100">
-        {!imageError && photo.s3Key ? (
+        {!imageError && photo.photoUrl ? (
           <img
-            src={`https://${photo.s3Key}`}
+            src={photo.photoUrl}
             alt={photo.fileName}
             className="w-full h-full object-cover"
             onError={() => setImageError(true)}
@@ -82,7 +123,7 @@ export default function PhotoCard({ photo, onDelete }: PhotoCardProps) {
         )}
 
         {/* Overlay Actions */}
-        {isHovered && (
+        {isHovered && !selectionMode && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -91,22 +132,14 @@ export default function PhotoCard({ photo, onDelete }: PhotoCardProps) {
             <button
               className="px-4 py-2 bg-white text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
               onClick={() => {
-                // Download functionality
-                if (photo.s3Key) {
-                  window.open(`https://${photo.s3Key}`, '_blank');
+                // View functionality
+                if (photo.photoUrl) {
+                  window.open(photo.photoUrl, '_blank');
                 }
               }}
             >
               View
             </button>
-            {onDelete && (
-              <button
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                onClick={() => onDelete(photo.photoId)}
-              >
-                Delete
-              </button>
-            )}
           </motion.div>
         )}
 

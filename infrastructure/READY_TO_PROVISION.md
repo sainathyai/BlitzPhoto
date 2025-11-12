@@ -59,7 +59,7 @@ chmod +x verify-aws-access.sh
 ✅ AWS credentials configured
    Account ID: 123456789012
    User ARN: arn:aws:iam::123456789012:user/your-name
-✅ Region set: us-east-1
+✅ Region set: us-west-2
 ✅ VPC access
 ✅ RDS access
 ✅ S3 access
@@ -91,7 +91,7 @@ nano terraform.tfvars
 **Required changes in `terraform.tfvars`:**
 
 ```hcl
-aws_region  = "us-east-1"          # Or your preferred region
+aws_region  = "us-west-2"          # Or your preferred region
 environment = "dev"                 # Keep as dev
 project_name = "rapidphoto"         # Or customize
 
@@ -329,7 +329,7 @@ echo "SQS_UPLOAD_QUEUE_URL=$(terraform output -raw sqs_upload_queue_url)"
 
 ```properties
 # Database (from Terraform outputs)
-DB_HOST=rapidphoto-db-dev.xxxxx.us-east-1.rds.amazonaws.com
+DB_HOST=rapidphoto-db-dev.xxxxx.us-west-2.rds.amazonaws.com
 DB_PORT=5432
 DB_NAME=rapidphoto
 DB_USERNAME=rapidphoto_admin
@@ -340,14 +340,14 @@ S3_UPLOADS_BUCKET=rapidphoto-uploads-dev-123456789012
 S3_THUMBNAILS_BUCKET=rapidphoto-thumbnails-dev-123456789012
 
 # SQS
-SQS_UPLOAD_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/123456789012/rapidphoto-upload-queue-dev
+SQS_UPLOAD_QUEUE_URL=https://sqs.us-west-2.amazonaws.com/123456789012/rapidphoto-upload-queue-dev
 
 # JWT (generate new secret)
 JWT_SECRET=$(openssl rand -base64 32)
 ADMIN_PASSWORD=your-admin-password
 
 # AWS (already configured via AWS CLI)
-AWS_REGION=us-east-1
+AWS_REGION=us-west-2
 
 # CORS
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173

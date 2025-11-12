@@ -3,8 +3,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '../lib/axios';
 import { useUploadStore } from '../store/uploadStore';
 import { useAuth } from './useAuth';
-import type { InitiateUploadRequest, InitiateUploadResponse, PhotoUploadRequest } from '../types/api.types';
-import { env } from '../config/env';
+import type { 
+  InitiateUploadRequest, 
+  InitiateUploadResponse, 
+  PhotoUploadRequest,
+  CompleteUploadRequest,
+  CompleteUploadResponse
+} from '../types/api.types';
+import { getFileKey } from '../lib/utils';
 
 export interface FileUploadState {
   file: File;
@@ -22,9 +28,30 @@ export interface FileUploadState {
  */
 export function useFileUpload() {
   const { user } = useAuth();
-  const { setCurrentUploadJob, setIsUploading } = useUploadStore();
+  const { setCurrentUploadJob, setIsUploading, setUploadProgress, clearUpload } = useUploadStore();
   const queryClient = useQueryClient();
   const [uploadStates, setUploadStates] = useState<Map<string, FileUploadState>>(new Map());
+
+  const updateUploadStates = useCallback((updater: (map: Map<string, FileUploadState>) => void) => {
+    setUploadStates((prev) => {
+      const next = new Map(prev);
+      updater(next);
+
+      const values = Array.from(next.values());
+      const overallProgress = values.length
+        ? Math.round(values.reduce((sum, state) => sum + state.progress, 0) / values.length)
+        : 0;
+
+      setUploadProgress(overallProgress);
+      return next;
+    });
+  }, [setUploadProgress]);
+
+  const clearUploadStates = useCallback(() => {
+    setUploadStates(new Map());
+    setUploadProgress(0);
+    clearUpload();
+  }, [clearUpload, setUploadProgress]);
 
   // Mutation for initiating upload
   const initiateUploadMutation = useMutation({
@@ -48,22 +75,36 @@ export function useFileUpload() {
       return response.data;
     },
     onSuccess: async (data, variables) => {
+      // Validate response data
+      if (!data || !data.photos || !Array.isArray(data.photos) || data.photos.length === 0) {
+        console.error('Invalid upload response:', data);
+        setIsUploading(false);
+        return;
+      }
+
       setCurrentUploadJob(data);
       setIsUploading(true);
+      setUploadProgress(0);
 
       // Initialize upload states
       const newStates = new Map<string, FileUploadState>();
       data.photos.forEach((photo, index) => {
         const file = variables[index];
-        newStates.set(file.name, {
+        if (!file) return; // Skip if file doesn't exist
+        
+        const key = getFileKey(file);
+        newStates.set(key, {
           file,
           photoId: photo.photoId,
           status: 'pending',
           progress: 0,
-          presignedUrl: photo.presignedUrl.url,
+          presignedUrl: photo.presignedUrl?.url || '',
         });
       });
-      setUploadStates(newStates);
+      setUploadStates(() => {
+        setUploadProgress(newStates.size ? 0 : 100);
+        return newStates;
+      });
 
       // Start uploading files
       await uploadFilesToS3(data, variables);
@@ -76,72 +117,145 @@ export function useFileUpload() {
 
   // Upload files to S3 using presigned URLs
   const uploadFilesToS3 = async (uploadResponse: InitiateUploadResponse, files: File[]) => {
-    const uploadPromises = uploadResponse.photos.map(async (photo, index) => {
-      const file = files[index];
-      const state = uploadStates.get(file.name);
-      if (!state) {
-        // Create state if it doesn't exist
-        const newState: FileUploadState = {
-          file,
-          photoId: photo.photoId,
-          status: 'pending',
-          progress: 0,
-          presignedUrl: photo.presignedUrl.url,
-        };
-        setUploadStates((prev) => new Map(prev).set(file.name, newState));
-      }
+    // Validate response data
+    if (!uploadResponse || !uploadResponse.photos || !Array.isArray(uploadResponse.photos) || uploadResponse.photos.length === 0) {
+      console.error('Invalid upload response for S3 upload:', uploadResponse);
+      setIsUploading(false);
+      return;
+    }
 
-      try {
-        // Update state to uploading
-        setUploadStates((prev) => {
-          const newMap = new Map(prev);
-          const current = newMap.get(file.name);
-          if (current) {
-            newMap.set(file.name, { ...current, status: 'uploading', progress: 0 });
+    const uploadWithProgress = (url: string, contentType: string, file: File, key: string) =>
+      new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener('progress', (event) => {
+          if (!event.lengthComputable) {
+            return;
           }
-          return newMap;
+          const percent = Math.round((event.loaded / event.total) * 100);
+          updateUploadStates((map) => {
+            const current = map.get(key);
+            if (current) {
+              map.set(key, { ...current, progress: percent });
+            }
+          });
         });
 
-        // Upload to S3
-        const response = await fetch(photo.presignedUrl.url, {
-          method: 'PUT',
-          body: file,
-          headers: {
-            'Content-Type': photo.presignedUrl.contentType,
-          },
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`));
+          }
         });
 
-        if (!response.ok) {
-          throw new Error(`Upload failed: ${response.statusText}`);
+        xhr.addEventListener('error', () => {
+          reject(new Error('Network error while uploading to S3'));
+        });
+
+        xhr.open('PUT', url, true);
+        xhr.setRequestHeader('Content-Type', contentType);
+        xhr.setRequestHeader('x-amz-server-side-encryption', 'AES256');
+        xhr.send(file);
+      });
+
+    const uploadResults = await Promise.allSettled(
+      uploadResponse.photos.map(async (photo, index) => {
+        const file = files[index];
+        if (!file) {
+          console.warn(`File at index ${index} is undefined`);
+          return { success: false, photoId: photo.photoId, error: new Error('File is undefined') };
         }
 
-        // Update state to completed
-        setUploadStates((prev) => {
-          const newMap = new Map(prev);
-          const current = newMap.get(file.name);
-          if (current) {
-            newMap.set(file.name, { ...current, status: 'completed', progress: 100 });
-          }
-          return newMap;
-        });
-      } catch (error) {
-        // Update state to failed
-        setUploadStates((prev) => {
-          const newMap = new Map(prev);
-          const current = newMap.get(file.name);
-          if (current) {
-            newMap.set(file.name, {
-              ...current,
-              status: 'failed',
-              error: error instanceof Error ? error.message : 'Upload failed',
-            });
-          }
-          return newMap;
-        });
-      }
-    });
+        // Validate presigned URL
+        if (!photo.presignedUrl || !photo.presignedUrl.url) {
+          console.error('Missing presigned URL for photo:', photo);
+          return { success: false, photoId: photo.photoId, error: new Error('Missing presigned URL') };
+        }
 
-    await Promise.all(uploadPromises);
+        const key = getFileKey(file);
+
+        updateUploadStates((map) => {
+          const current = map.get(key);
+          const baseState: FileUploadState = current ?? {
+            file,
+            photoId: photo.photoId,
+            status: 'pending',
+            progress: 0,
+            presignedUrl: photo.presignedUrl?.url,
+          };
+
+          map.set(key, {
+            ...baseState,
+            file,
+            photoId: photo.photoId,
+            status: 'uploading',
+            progress: baseState.progress ?? 0,
+            presignedUrl: photo.presignedUrl?.url,
+            error: undefined,
+          });
+        });
+
+        try {
+          await uploadWithProgress(
+            photo.presignedUrl.url,
+            photo.presignedUrl.contentType || file.type,
+            file,
+            key
+          );
+
+          updateUploadStates((map) => {
+            const current = map.get(key);
+            if (current) {
+              map.set(key, { ...current, status: 'completed', progress: 100, error: undefined });
+            }
+          });
+
+          return { success: true, photoId: photo.photoId };
+        } catch (error) {
+          updateUploadStates((map) => {
+            const current = map.get(key);
+            if (current) {
+              map.set(key, {
+                ...current,
+                status: 'failed',
+                error: error instanceof Error ? error.message : 'Upload failed',
+              });
+            }
+          });
+
+          return { success: false, photoId: photo.photoId, error };
+        }
+      })
+    );
+    
+    // Check if all uploads succeeded
+    const allCompleted = uploadResults.every(
+      (result) => result.status === 'fulfilled' && result.value.success
+    );
+    
+    // Call complete upload endpoint if all uploads succeeded
+    if (allCompleted && uploadResponse.uploadJobId && user) {
+      try {
+        const completeRequest: CompleteUploadRequest = {
+          uploadJobId: uploadResponse.uploadJobId,
+          userId: user.id,
+        };
+        
+        await apiClient.post<CompleteUploadResponse>('/uploads/complete', completeRequest);
+        console.log('Upload job completed successfully');
+        
+        // Invalidate photos query to refresh the gallery
+        queryClient.invalidateQueries({ queryKey: ['photos', user?.id] });
+      } catch (error) {
+        console.error('Failed to complete upload job:', error);
+        // Don't fail the entire upload - files are already in S3
+      }
+    }
+
+    // Refresh gallery even if some uploads failed to reflect current state
+    queryClient.invalidateQueries({ queryKey: ['photos', user?.id] });
+    
     setIsUploading(false);
   };
 
@@ -149,11 +263,18 @@ export function useFileUpload() {
     initiateUploadMutation.mutate(files);
   }, [initiateUploadMutation]);
 
+  const uploadStateArray = Array.from(uploadStates.values());
+  const hasActiveUploads = uploadStateArray.some(
+    (state) => state.status === 'pending' || state.status === 'uploading'
+  );
+  const isUploadingFlag = initiateUploadMutation.isPending || hasActiveUploads;
+
   return {
     uploadFiles,
-    uploadStates: Array.from(uploadStates.values()),
-    isUploading: initiateUploadMutation.isPending,
+    uploadStates: uploadStateArray,
+    isUploading: isUploadingFlag,
     error: initiateUploadMutation.error,
+    clearUploads: clearUploadStates,
   };
 }
 

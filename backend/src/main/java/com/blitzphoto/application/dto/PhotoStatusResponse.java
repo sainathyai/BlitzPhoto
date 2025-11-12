@@ -18,6 +18,7 @@ public record PhotoStatusResponse(
         Long fileSize,
         String status,
         String s3Key,
+        String photoUrl, // Presigned URL for photo access
         String errorMessage,
         Instant uploadedAt,
         Instant processedAt,

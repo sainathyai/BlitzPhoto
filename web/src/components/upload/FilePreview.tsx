@@ -35,19 +35,6 @@ export default function FilePreview({
     }
   }, [file]);
 
-  const getStatusColor = () => {
-    switch (status) {
-      case 'completed':
-        return 'text-green-600';
-      case 'failed':
-        return 'text-red-600';
-      case 'uploading':
-        return 'text-blue-600';
-      default:
-        return 'text-gray-600';
-    }
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

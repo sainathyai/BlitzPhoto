@@ -4,10 +4,13 @@ import UploadDropzone from '../components/upload/UploadDropzone';
 import FileList from '../components/upload/FileList';
 import UploadButton from '../components/upload/UploadButton';
 import UploadValidation from '../components/upload/UploadValidation';
+import UploadProgressPanel from '../components/upload/UploadProgressPanel';
 import { useFileUpload } from '../hooks/useFileUpload';
 import { useFileValidation } from '../hooks/useFileValidation';
 import { env } from '../config/env';
 import PhotoGallery from '../components/gallery/PhotoGallery';
+import { getFileKey } from '../lib/utils';
+import type { FileValidationError } from '../hooks/useFileValidation';
 
 /**
  * Dashboard Page
@@ -16,24 +19,29 @@ import PhotoGallery from '../components/gallery/PhotoGallery';
  */
 export default function DashboardPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [validationErrors, setValidationErrors] = useState<any[]>([]);
+  const [validationErrors, setValidationErrors] = useState<FileValidationError[]>([]);
   const { validateFiles } = useFileValidation();
-  const { uploadFiles, isUploading } = useFileUpload();
+  const { uploadFiles, uploadStates, isUploading, clearUploads } = useFileUpload();
 
   const handleFilesSelected = useCallback((files: File[]) => {
-    // Validate files
-    const validation = validateFiles(files);
-    
+    const validation = validateFiles(files, selectedFiles.length);
+
     if (validation.isValid) {
-      setSelectedFiles((prev) => [...prev, ...files]);
+      setSelectedFiles((prev) => {
+        const fileMap = new Map(prev.map((file) => [getFileKey(file), file]));
+        files.forEach((file) => {
+          fileMap.set(getFileKey(file), file);
+        });
+        return Array.from(fileMap.values());
+      });
       setValidationErrors([]);
     } else {
       setValidationErrors(validation.errors);
     }
-  }, [validateFiles]);
+  }, [validateFiles, selectedFiles.length]);
 
   const handleRemoveFile = useCallback((file: File) => {
-    setSelectedFiles((prev) => prev.filter((f) => f.name !== file.name));
+    setSelectedFiles((prev) => prev.filter((f) => getFileKey(f) !== getFileKey(file)));
   }, []);
 
   const handleUpload = useCallback(() => {
@@ -44,8 +52,9 @@ export default function DashboardPage() {
   }, [selectedFiles, uploadFiles]);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-200 p-6 md:p-10">
+        <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -115,7 +124,9 @@ export default function DashboardPage() {
           </h2>
           <PhotoGallery />
         </motion.div>
+        </div>
       </div>
-    </div>
+      <UploadProgressPanel uploads={uploadStates} onClear={clearUploads} />
+    </>
   );
 }

@@ -310,7 +310,7 @@ Before provisioning, ensure:
 - [ ] AWS CLI installed: `aws --version`
 - [ ] AWS credentials configured: `aws sts get-caller-identity`
 - [ ] Terraform installed: `terraform --version`
-- [ ] Region set to us-east-1 (or your choice)
+- [ ] Region set to us-west-2 (or your choice)
 - [ ] Sufficient IAM permissions (AdministratorAccess for dev)
 - [ ] terraform.tfvars created and password set
 - [ ] Understand costs (~$20-25/month for dev)

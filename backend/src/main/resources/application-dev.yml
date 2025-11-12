@@ -22,5 +22,5 @@ logging:
 blitzphoto:
   security:
     cors:
-      allowed-origins: "*"  # Allow all origins in dev
+      allowed-origins: "http://localhost:5173,http://localhost:5174,http://localhost:3000,http://localhost:19006,http://sainathyai-frontend-dev.s3-website-us-west-2.amazonaws.com,https://blitzphoto.sainathyai.com"  # Allow dev origins, S3 frontend, and CloudFront domain
 

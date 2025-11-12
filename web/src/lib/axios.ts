@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosError } from 'axios';
+import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { env } from '../config/env';
 
 /**
@@ -8,19 +8,28 @@ import { env } from '../config/env';
  * and error handling.
  */
 
+// Create axios instance with dynamic baseURL that's evaluated at runtime
 const apiClient: AxiosInstance = axios.create({
-  baseURL: env.apiUrl,
+  baseURL: env.apiUrl, // Initial value, will be overridden on each request
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor - Add JWT token to requests
+// Request interceptor - Update baseURL and add JWT token on every request
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('accessToken');
+    // Update baseURL on every request to ensure it's always current (runtime evaluation)
+    const apiUrl = env.apiUrl;
+    config.baseURL = apiUrl;
     
+    // DEBUG: Log the API URL being used
+    console.log('[Axios] Request to:', apiUrl + (config.url || ''));
+    console.log('[Axios] Full URL:', config.baseURL + (config.url || ''));
+    
+    // Add JWT token to requests
+    const token = localStorage.getItem('accessToken');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -40,8 +49,8 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     
-    // Handle 401 Unauthorized - Token expired or invalid
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Handle 401 Unauthorized or 403 Forbidden - Token expired or invalid
+    if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry) {
       originalRequest._retry = true;
       
       // Try to refresh token

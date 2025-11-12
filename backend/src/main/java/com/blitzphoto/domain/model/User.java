@@ -19,6 +19,7 @@ import java.util.UUID;
 @Table(name = "users")
 @EntityListeners(AuditingEntityListener.class)
 @Getter
+@Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
@@ -34,7 +35,7 @@ public class User {
     @Column(nullable = false)
     private String username;
 
-    @Column(nullable = false)
+    @Column(name = "password_hash", nullable = false)
     private String passwordHash; // BCrypt hashed password
 
     @Column(nullable = false)
@@ -42,13 +43,14 @@ public class User {
     private Boolean active = true;
 
     @CreatedDate
-    @Column(nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     @LastModifiedDate
-    @Column(nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
     /**

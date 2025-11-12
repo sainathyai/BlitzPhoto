@@ -62,3 +62,10 @@ export function isValidFileSize(file: File, maxSize: number): boolean {
   return file.size <= maxSize;
 }
 
+/**
+ * Generate a stable key for a file using name, size, and lastModified timestamp.
+ */
+export function getFileKey(file: File): string {
+  return `${file.name}-${file.size}-${file.lastModified}`;
+}
+

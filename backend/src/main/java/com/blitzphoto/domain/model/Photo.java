@@ -19,6 +19,7 @@ import java.util.UUID;
 @Table(name = "photos")
 @EntityListeners(AuditingEntityListener.class)
 @Getter
+@Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
@@ -36,13 +37,13 @@ public class Photo {
     @Column(name = "upload_job_id", nullable = false, insertable = false, updatable = false)
     private UUID uploadJobId;
 
-    @Column(nullable = false)
+    @Column(name = "file_name", nullable = false)
     private String fileName;
 
-    @Column(nullable = false)
+    @Column(name = "content_type", nullable = false)
     private String contentType;
 
-    @Column(nullable = false)
+    @Column(name = "file_size", nullable = false)
     private Long fileSize;
 
     @Column(nullable = false)
@@ -50,25 +51,27 @@ public class Photo {
     @Builder.Default
     private UploadStatus status = UploadStatus.PENDING;
 
-    @Column(length = 1000)
+    @Column(name = "error_message", length = 1000)
     private String errorMessage;
 
-    @Column(nullable = false)
+    @Column(name = "s3_key", nullable = false)
     private String s3Key;
 
+    @Column(name = "thumbnail_s3_key")
     private String thumbnailS3Key;
 
     private Integer width;
     private Integer height;
 
     @CreatedDate
-    @Column(nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     @LastModifiedDate
-    @Column(nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "uploaded_at")
     private Instant uploadedAt;
 
     /**

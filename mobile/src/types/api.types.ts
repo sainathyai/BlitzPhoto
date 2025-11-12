@@ -43,6 +43,37 @@ export interface InitiateUploadResponse {
   expiresAt: string;
 }
 
+export interface CompleteUploadRequest {
+  uploadJobId: string;
+  userId: string;
+}
+
+export interface CompleteUploadResponse {
+  uploadJobId: string;
+  userId: string;
+  status: string;
+  message: string;
+  completedAt: string;
+}
+
+export type DeleteStatus = 'DELETED' | 'NOT_FOUND' | 'UNAUTHORIZED' | 'FAILED';
+
+export interface DeletePhotosRequest {
+  photoIds: string[];
+}
+
+export interface PhotoDeleteResult {
+  photoId: string;
+  status: DeleteStatus;
+  message: string;
+}
+
+export interface DeletePhotosResponse {
+  requestedCount: number;
+  deletedCount: number;
+  results: PhotoDeleteResult[];
+}
+
 export interface PhotoStatusResponse {
   photoId: string;
   fileName: string;

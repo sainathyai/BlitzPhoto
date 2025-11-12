@@ -9,9 +9,13 @@ import com.blitzphoto.infrastructure.image.ImageProcessingService;
 import com.blitzphoto.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 import java.util.List;
 import java.util.UUID;
@@ -31,6 +35,10 @@ public class UploadJobMessageHandler {
     private final PhotoRepository photoRepository;
     private final S3Service s3Service;
     private final ImageProcessingService imageProcessingService;
+    private final S3Client s3Client;
+
+    @Value("${blitzphoto.aws.s3.uploads-bucket}")
+    private String uploadsBucket;
 
     /**
      * Process upload job message
@@ -86,20 +94,37 @@ public class UploadJobMessageHandler {
      * Verifies the photo exists in S3 and updates its status.
      */
     private void processPhoto(Photo photo) {
-        log.debug("Processing photo: photoId={}, s3Key={}", photo.getId(), photo.getS3Key());
+        log.debug("Processing photo: photoId={}, s3Key={}, status={}", photo.getId(), photo.getS3Key(), photo.getStatus());
 
         try {
-            // Verify photo exists in S3
-            // For now, we assume the photo was successfully uploaded if it has an S3 key
-            // In a production system, you would verify the S3 object exists
+            // Verify photo has S3 key
             if (photo.getS3Key() == null || photo.getS3Key().isEmpty()) {
                 log.warn("Photo has no S3 key: photoId={}", photo.getId());
                 photo.markAsFailed("S3 key is missing");
                 return;
             }
 
-            // Mark photo as uploaded (status will be updated to PROCESSING)
+            // Check if S3 object exists
+            boolean s3ObjectExists = checkS3ObjectExists(photo.getS3Key());
+            
+            if (!s3ObjectExists) {
+                // S3 object doesn't exist yet
+                if (photo.getStatus() == Photo.UploadStatus.PENDING) {
+                    // File hasn't been uploaded yet, skip processing (will be retried later)
+                    log.debug("S3 object not found for PENDING photo: photoId={}, s3Key={}. Skipping - will retry when file is uploaded.", 
+                            photo.getId(), photo.getS3Key());
+                    return;
+                } else {
+                    // Photo was marked as UPLOADING but file doesn't exist - mark as failed
+                    log.warn("S3 object not found for UPLOADING photo: photoId={}, s3Key={}", photo.getId(), photo.getS3Key());
+                    photo.markAsFailed("S3 object not found - upload may have failed");
+                    return;
+                }
+            }
+
+            // S3 object exists - process the photo
             if (photo.getStatus() == Photo.UploadStatus.PENDING) {
+                // Mark as uploading now that we've verified the file exists
                 photo.markAsUploading();
             }
 
@@ -119,6 +144,7 @@ public class UploadJobMessageHandler {
                     
                     // Mark as completed with all metadata
                     photo.markAsCompleted(photo.getS3Key(), thumbnailS3Key, width, height);
+                    log.info("Successfully processed photo: photoId={}", photo.getId());
                 } catch (Exception e) {
                     log.error("Failed to process photo: photoId={}", photo.getId(), e);
                     photo.markAsFailed("Failed to process image: " + e.getMessage());
@@ -130,6 +156,32 @@ public class UploadJobMessageHandler {
         } catch (Exception e) {
             log.error("Failed to process photo: photoId={}", photo.getId(), e);
             photo.markAsFailed("Failed to process photo: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Check if S3 object exists
+     * 
+     * @param s3Key S3 key to check
+     * @return true if object exists, false otherwise
+     */
+    private boolean checkS3ObjectExists(String s3Key) {
+        try {
+            HeadObjectRequest headRequest = HeadObjectRequest.builder()
+                    .bucket(uploadsBucket)
+                    .key(s3Key)
+                    .build();
+            
+            s3Client.headObject(headRequest);
+            log.debug("S3 object exists: s3Key={}", s3Key);
+            return true;
+        } catch (NoSuchKeyException e) {
+            log.debug("S3 object does not exist: s3Key={}", s3Key);
+            return false;
+        } catch (Exception e) {
+            log.error("Error checking S3 object existence: s3Key={}", s3Key, e);
+            // Assume it doesn't exist if we can't check
+            return false;
         }
     }
 

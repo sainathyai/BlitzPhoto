@@ -1,3 +1,7 @@
+locals {
+  name_prefix = "${var.project_name}-${var.environment}"
+}
+
 # VPC
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
@@ -5,7 +9,9 @@ resource "aws_vpc" "main" {
   enable_dns_support   = true
 
   tags = {
-    Name = "${var.project_name}-vpc-${var.environment}"
+    Name        = "${local.name_prefix}-vpc"
+    Environment = var.environment
+    Project     = var.project_name
   }
 }
 
@@ -14,7 +20,9 @@ resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "${var.project_name}-igw-${var.environment}"
+    Name        = "${local.name_prefix}-igw"
+    Environment = var.environment
+    Project     = var.project_name
   }
 }
 
@@ -28,7 +36,9 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "${var.project_name}-public-subnet-${count.index + 1}-${var.environment}"
+    Name        = "${local.name_prefix}-public-${count.index + 1}"
+    Environment = var.environment
+    Project     = var.project_name
     Type = "Public"
   }
 }
@@ -41,7 +51,9 @@ resource "aws_subnet" "private" {
   availability_zone = data.aws_availability_zones.available.names[count.index]
 
   tags = {
-    Name = "${var.project_name}-private-subnet-${count.index + 1}-${var.environment}"
+    Name        = "${local.name_prefix}-private-${count.index + 1}"
+    Environment = var.environment
+    Project     = var.project_name
     Type = "Private"
   }
 }
@@ -56,7 +68,9 @@ resource "aws_route_table" "public" {
   }
 
   tags = {
-    Name = "${var.project_name}-public-rt-${var.environment}"
+    Name        = "${local.name_prefix}-public-rt"
+    Environment = var.environment
+    Project     = var.project_name
   }
 }
 
@@ -72,6 +86,11 @@ resource "aws_security_group" "backend" {
   name        = "${var.project_name}-backend-sg-${var.environment}"
   description = "Security group for backend application"
   vpc_id      = aws_vpc.main.id
+  tags = {
+    Name        = "${local.name_prefix}-backend-sg"
+    Environment = var.environment
+    Project     = var.project_name
+  }
 
   # Allow HTTP from anywhere (or restrict to specific IPs)
   ingress {
@@ -99,10 +118,6 @@ resource "aws_security_group" "backend" {
     cidr_blocks = ["0.0.0.0/0"]
     description = "Allow all outbound"
   }
-
-  tags = {
-    Name = "${var.project_name}-backend-sg-${var.environment}"
-  }
 }
 
 # Security Group for RDS
@@ -110,6 +125,12 @@ resource "aws_security_group" "rds" {
   name        = "${var.project_name}-rds-sg-${var.environment}"
   description = "Security group for RDS PostgreSQL"
   vpc_id      = aws_vpc.main.id
+
+  tags = {
+    Name        = "${local.name_prefix}-rds-sg"
+    Environment = var.environment
+    Project     = var.project_name
+  }
 
   # Allow PostgreSQL from backend security group
   ingress {
@@ -135,10 +156,6 @@ resource "aws_security_group" "rds" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
     description = "Allow all outbound"
-  }
-
-  tags = {
-    Name = "${var.project_name}-rds-sg-${var.environment}"
   }
 }
 

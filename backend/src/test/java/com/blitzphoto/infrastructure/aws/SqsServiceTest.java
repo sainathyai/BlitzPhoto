@@ -38,7 +38,7 @@ class SqsServiceTest {
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        uploadQueueUrl = "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue";
+        uploadQueueUrl = "https://sqs.us-west-2.amazonaws.com/123456789012/test-queue";
 
         ReflectionTestUtils.setField(sqsService, "objectMapper", objectMapper);
         ReflectionTestUtils.setField(sqsService, "uploadQueueUrl", uploadQueueUrl);

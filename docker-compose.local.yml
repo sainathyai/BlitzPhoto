@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: blitzphoto-postgres-local
+    environment:
+      POSTGRES_DB: blitzphoto
+      POSTGRES_USER: rapidphoto
+      POSTGRES_PASSWORD: changeme
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rapidphoto"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: blitzphoto-backend-local
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: blitzphoto
+      DB_USERNAME: rapidphoto
+      DB_PASSWORD: changeme
+      DB_SSLMODE: disable
+      AWS_REGION: us-west-2
+      # Use your actual AWS credentials or IAM role
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      S3_UPLOADS_BUCKET: ${S3_UPLOADS_BUCKET:-sainathyai-uploads-dev-us-west-2-971422717446}
+      S3_THUMBNAILS_BUCKET: ${S3_THUMBNAILS_BUCKET:-sainathyai-thumbnails-dev-us-west-2-971422717446}
+      SQS_UPLOAD_QUEUE_URL: ${SQS_UPLOAD_QUEUE_URL}
+      JWT_SECRET: local-testing-secret-key-change-me-in-production-at-least-256-bits-long-for-security
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/logs:/app/logs
+
+volumes:
+  postgres_data:
+

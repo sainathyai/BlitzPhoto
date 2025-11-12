@@ -1,9 +1,13 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import FilePreview from './FilePreview';
+import type { FileUploadState } from '../../hooks/useFileUpload';
+import { getFileKey } from '../../lib/utils';
+
+type UploadStateSummary = Pick<FileUploadState, 'status' | 'progress' | 'error'>;
 
 interface FileListProps {
   files: File[];
-  uploadStates?: Map<string, { status: string; progress: number; error?: string }>;
+  uploadStates?: Map<string, UploadStateSummary>;
   onRemove?: (file: File) => void;
 }
 
@@ -25,13 +29,14 @@ export default function FileList({ files, uploadStates, onRemove }: FileListProp
       <AnimatePresence>
         <div className="space-y-2">
           {files.map((file) => {
-            const state = uploadStates?.get(file.name);
+            const key = getFileKey(file);
+            const state = uploadStates?.get(key);
             return (
               <FilePreview
-                key={file.name}
+                key={key}
                 file={file}
-                status={state?.status as any || 'pending'}
-                progress={state?.progress || 0}
+                status={state?.status ?? 'pending'}
+                progress={state?.progress ?? 0}
                 error={state?.error}
                 onRemove={onRemove ? () => onRemove(file) : undefined}
               />

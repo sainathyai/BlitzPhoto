@@ -1,0 +1,53 @@
+# Local Development Profile
+# Use this profile for local testing without AWS infrastructure
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:blitzphoto}
+    username: ${DB_USERNAME:rapidphoto}
+    password: ${DB_PASSWORD:changeme}
+  
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# BlitzPhoto Configuration for Local Testing
+blitzphoto:
+  aws:
+    region: ${AWS_REGION:us-west-2}
+    s3:
+      # For LocalStack, use: http://localhost:4566
+      # For real AWS, use your bucket names
+      uploads-bucket: ${S3_UPLOADS_BUCKET:blitzphoto-uploads-local}
+      thumbnails-bucket: ${S3_THUMBNAILS_BUCKET:blitzphoto-thumbnails-local}
+      presigned-url-expiration-minutes: 15
+    sqs:
+      # For LocalStack, use: http://localhost:4566/000000000000/blitzphoto-upload-queue
+      # For real AWS, use your queue URL
+      upload-queue-url: ${SQS_UPLOAD_QUEUE_URL:http://localhost:4566/000000000000/blitzphoto-upload-queue}
+      max-receive-count: 3
+      poll-interval-ms: 10000
+  
+  security:
+    jwt:
+      secret: ${JWT_SECRET:local-testing-secret-key-change-me-in-production-at-least-256-bits-long-for-security}
+      expiration-ms: 900000  # 15 minutes
+      refresh-expiration-ms: 604800000  # 7 days
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:19006}
+      allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+      allowed-headers: "*"
+      allow-credentials: true
+
+# Logging for Local Development
+logging:
+  level:
+    root: INFO
+    com.blitzphoto: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+

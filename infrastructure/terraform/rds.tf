@@ -1,7 +1,9 @@
 # DB Subnet Group
 resource "aws_db_subnet_group" "main" {
   name       = "${var.project_name}-db-subnet-group-${var.environment}"
-  subnet_ids = aws_subnet.private[*].id
+  # Use public subnets for dev to allow direct access
+  # In production, change this back to private subnets and use VPN/Bastion
+  subnet_ids = var.environment == "prod" ? aws_subnet.private[*].id : aws_subnet.public[*].id
 
   tags = {
     Name = "${var.project_name}-db-subnet-group-${var.environment}"

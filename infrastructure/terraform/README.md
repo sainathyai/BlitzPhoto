@@ -16,7 +16,7 @@ This directory contains Terraform configuration to provision all AWS resources f
 aws configure
 # Enter your AWS Access Key ID
 # Enter your AWS Secret Access Key
-# Enter region: us-east-1
+# Enter region: us-west-2
 # Enter output format: json
 ```
 

@@ -1,19 +1,17 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  }
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+@theme {
+  --color-primary: #4f46e5;
+  --color-primary-dark: #4338ca;
+  --color-primary-light: #6366f1;
+  
+  --color-secondary: #9333ea;
+  --color-secondary-dark: #7e22ce;
+  --color-secondary-light: #a855f7;
+  
+  --color-accent: #0ea5e9;
+  --color-accent-dark: #0284c7;
+  --color-accent-light: #38bdf8;
+  
+  --font-family-sans: "Inter", system-ui, -apple-system, sans-serif;
 }

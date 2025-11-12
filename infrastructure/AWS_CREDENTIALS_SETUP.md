@@ -12,7 +12,7 @@ You'll be prompted for:
 ```
 AWS Access Key ID [None]: YOUR_ACCESS_KEY_ID
 AWS Secret Access Key [None]: YOUR_SECRET_ACCESS_KEY
-Default region name [None]: us-east-1
+Default region name [None]: us-west-2
 Default output format [None]: json
 ```
 
@@ -37,10 +37,10 @@ aws sts get-caller-identity
 aws s3 ls
 
 # Test RDS access
-aws rds describe-db-instances --region us-east-1
+aws rds describe-db-instances --region us-west-2
 
 # Test VPC access
-aws ec2 describe-vpcs --region us-east-1
+aws ec2 describe-vpcs --region us-west-2
 ```
 
 ---
@@ -51,7 +51,7 @@ aws ec2 describe-vpcs --region us-east-1
 # Set credentials
 export AWS_ACCESS_KEY_ID="YOUR_ACCESS_KEY_ID"
 export AWS_SECRET_ACCESS_KEY="YOUR_SECRET_ACCESS_KEY"
-export AWS_DEFAULT_REGION="us-east-1"
+export AWS_DEFAULT_REGION="us-west-2"
 
 # Verify
 aws sts get-caller-identity
@@ -78,7 +78,7 @@ aws_secret_access_key = YOUR_SECRET_ACCESS_KEY
 And `~/.aws/config`:
 ```ini
 [default]
-region = us-east-1
+region = us-west-2
 output = json
 ```
 

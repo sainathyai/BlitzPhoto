@@ -49,7 +49,7 @@ public class SqsMessageListener {
                     .queueUrl(uploadQueueUrl)
                     .maxNumberOfMessages(10) // Process up to 10 messages at a time
                     .waitTimeSeconds(10) // Long polling
-                    .visibilityTimeoutSeconds(300) // 5 minutes visibility timeout
+                    .visibilityTimeout(300) // 5 minutes visibility timeout
                     .build();
 
             ReceiveMessageResponse response = sqsClient.receiveMessage(request);
@@ -87,8 +87,8 @@ public class SqsMessageListener {
                     SqsService.UploadJobMessage.class
             );
 
-            UUID uploadJobId = UUID.fromString(uploadJobMessage.getUploadJobId());
-            UUID userId = UUID.fromString(uploadJobMessage.getUserId());
+            UUID uploadJobId = UUID.fromString(uploadJobMessage.uploadJobId());
+            UUID userId = UUID.fromString(uploadJobMessage.userId());
 
             // Process upload job asynchronously
             uploadJobMessageHandler.processUploadJob(uploadJobId, userId);

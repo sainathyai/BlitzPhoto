@@ -1,6 +1,5 @@
-import { useMemo } from 'react';
 import { env } from '../config/env';
-import { isValidFileType, isValidFileSize, getFileExtension } from '../lib/utils';
+import { isValidFileType, isValidFileSize } from '../lib/utils';
 
 export interface FileValidationError {
   fileName: string;
@@ -20,7 +19,7 @@ export interface FileValidationResult {
 export function useFileValidation() {
   const validateFile = (file: File): FileValidationError | null => {
     // Validate file type
-    if (!isValidFileType(file, env.upload.allowedMimeTypes)) {
+    if (!isValidFileType(file, [...env.upload.allowedMimeTypes])) {
       return {
         fileName: file.name,
         error: `File type ${file.type} is not allowed. Allowed types: ${env.upload.allowedMimeTypes.join(', ')}`,
@@ -38,14 +37,15 @@ export function useFileValidation() {
     return null;
   };
 
-  const validateFiles = (files: File[]): FileValidationResult => {
+  const validateFiles = (files: File[], existingCount = 0): FileValidationResult => {
     const errors: FileValidationError[] = [];
 
     // Validate file count
-    if (files.length > env.upload.maxFiles) {
+    const totalCount = existingCount + files.length;
+    if (totalCount > env.upload.maxFiles) {
       errors.push({
         fileName: 'Batch',
-        error: `Cannot upload more than ${env.upload.maxFiles} files at once. Found: ${files.length}`,
+        error: `Cannot upload more than ${env.upload.maxFiles} files at once. Selected: ${totalCount}`,
       });
       return { isValid: false, errors };
     }

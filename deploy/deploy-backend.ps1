@@ -87,7 +87,18 @@ $taskDef.PSObject.Properties.Remove('registeredBy')
 
 # Convert to JSON and register
 $taskDefJsonString = $taskDef | ConvertTo-Json -Depth 10
-$newTaskDefArn = ($taskDefJsonString | aws ecs register-task-definition --region $AWS_REGION --cli-input-json file:///dev/stdin --query 'taskDefinition.taskDefinitionArn' --output text)
+$tempFile = New-TemporaryFile
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($tempFile.FullName, $taskDefJsonString, $utf8NoBom)
+try {
+    $newTaskDefArn = aws ecs register-task-definition `
+        --region $AWS_REGION `
+        --cli-input-json file://$($tempFile.FullName) `
+        --query 'taskDefinition.taskDefinitionArn' `
+        --output text
+} finally {
+    Remove-Item $tempFile -ErrorAction SilentlyContinue
+}
 
 Write-Host "New task definition registered: $newTaskDefArn" -ForegroundColor Green
 

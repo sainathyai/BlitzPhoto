@@ -12,7 +12,7 @@ import { motion } from 'framer-motion';
  * Displays grid of uploaded photos with pagination.
  */
 export default function PhotoGallery() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -29,7 +29,7 @@ export default function PhotoGallery() {
     refetch,
   } = useInfiniteQuery({
     queryKey: ['photos', user?.id],
-    enabled: !!user,
+    enabled: !!user && isAuthenticated,
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       if (!user) {
@@ -47,6 +47,14 @@ export default function PhotoGallery() {
       });
 
       return response.data;
+    },
+    retry: (failureCount, error: any) => {
+      // Don't retry on authentication errors (401/403)
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        return false;
+      }
+      // Retry other errors up to 3 times
+      return failureCount < 3;
     },
     getNextPageParam: (lastPage) => {
       if (!lastPage || lastPage.last) {
@@ -77,15 +85,19 @@ export default function PhotoGallery() {
   });
 
   useEffect(() => {
-    // Refetch photos periodically to get updates
+    // Refetch photos periodically to get updates (only if authenticated)
+    if (!isAuthenticated || !user) {
+      return;
+    }
+    
     const interval = setInterval(() => {
-      if (user) {
+      if (isAuthenticated && user) {
         refetch();
       }
     }, 5000); // Poll every 5 seconds
 
     return () => clearInterval(interval);
-  }, [user, refetch]);
+  }, [user, isAuthenticated, refetch]);
 
   useEffect(() => {
     if (!data?.pages) {
@@ -151,16 +163,23 @@ export default function PhotoGallery() {
   }
 
   if (isError) {
-    const message = error instanceof Error ? error.message : 'Failed to load photos';
+    const errorStatus = (error as any)?.response?.status;
+    const isAuthError = errorStatus === 401 || errorStatus === 403;
+    const message = isAuthError 
+      ? 'Your session has expired. Please log in again.'
+      : error instanceof Error ? error.message : 'Failed to load photos';
+    
     return (
       <div className="text-center py-12">
         <p className="text-red-600">{message}</p>
-        <button
-          onClick={() => refetch()}
-          className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
-        >
-          Retry
-        </button>
+        {!isAuthError && (
+          <button
+            onClick={() => refetch()}
+            className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
+          >
+            Retry
+          </button>
+        )}
       </div>
     );
   }
@@ -214,6 +233,8 @@ export default function PhotoGallery() {
     deletePhotosMutation.mutate(Array.from(selectedIds));
   };
 
+  const isDeleting = deletePhotosMutation.status === 'pending';
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -236,10 +257,10 @@ export default function PhotoGallery() {
           <button
             type="button"
             onClick={handleDeleteSelected}
-            disabled={selectedCount === 0 || deletePhotosMutation.isLoading}
+            disabled={selectedCount === 0 || isDeleting}
             className="rounded-full bg-rose-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:bg-rose-300"
           >
-            {deletePhotosMutation.isLoading ? 'Deleting…' : `Delete selected (${selectedCount})`}
+            {isDeleting ? 'Deleting…' : `Delete selected (${selectedCount})`}
           </button>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { env } from '../config/env';
+import { useAuthStore } from '../store/authStore';
 
 /**
  * Axios Instance Configuration
@@ -64,9 +65,19 @@ apiClient.interceptors.response.use(
           
           const { accessToken, refreshToken: newRefreshToken } = response.data;
           
+          // Update both localStorage and auth store
           localStorage.setItem('accessToken', accessToken);
           if (newRefreshToken) {
             localStorage.setItem('refreshToken', newRefreshToken);
+          }
+          
+          // Update auth store with new tokens
+          const authStore = useAuthStore.getState();
+          if (authStore.isAuthenticated) {
+            useAuthStore.setState({
+              accessToken,
+              refreshToken: newRefreshToken || authStore.refreshToken,
+            });
           }
           
           // Retry original request with new token
@@ -76,15 +87,17 @@ apiClient.interceptors.response.use(
           
           return apiClient(originalRequest);
         } catch (refreshError) {
-          // Refresh failed - clear tokens and redirect to login
+          // Refresh failed - clear tokens and auth store, then redirect to login
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
+          useAuthStore.getState().clearAuth();
           window.location.href = '/login';
           return Promise.reject(refreshError);
         }
       } else {
-        // No refresh token - redirect to login
+        // No refresh token - clear auth store and redirect to login
         localStorage.removeItem('accessToken');
+        useAuthStore.getState().clearAuth();
         window.location.href = '/login';
       }
     }

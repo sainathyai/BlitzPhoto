@@ -1,5 +1,8 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import Layout from '../components/layout/Layout';
+import MainLayout from '../components/layout/MainLayout';
+import AuthLayout from '../components/auth/AuthLayout';
+import ProtectedRoute from '../components/auth/ProtectedRoute';
+import PublicRoute from '../components/auth/PublicRoute';
 import LoginPage from '../pages/LoginPage';
 import RegisterPage from '../pages/RegisterPage';
 import DashboardPage from '../pages/DashboardPage';
@@ -8,24 +11,42 @@ import NotFoundPage from '../pages/NotFoundPage';
 /**
  * Application Routes
  * 
- * Defines all routes for the application.
+ * Defines all routes for the application with proper authentication guards.
  */
 const router = createBrowserRouter([
   {
     path: '/',
-    element: <Layout />,
+    element: <AuthLayout />,
     children: [
       {
-        index: true,
-        element: <DashboardPage />,
-      },
-      {
         path: 'login',
-        element: <LoginPage />,
+        element: (
+          <PublicRoute>
+            <LoginPage />
+          </PublicRoute>
+        ),
       },
       {
         path: 'register',
-        element: <RegisterPage />,
+        element: (
+          <PublicRoute>
+            <RegisterPage />
+          </PublicRoute>
+        ),
+      },
+    ],
+  },
+  {
+    path: '/',
+    element: <MainLayout />,
+    children: [
+      {
+        index: true,
+        element: (
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: '*',

@@ -100,7 +100,7 @@ blitzphoto:
       allow-credentials: true
     jwt:
       secret: ${JWT_SECRET:your-secret-key-change-me-in-production-at-least-256-bits}
-      expiration-ms: 900000  # 15 minutes
+      expiration-ms: 3600000  # 1 hour (improved from 15 minutes for better UX)
       refresh-expiration-ms: 604800000  # 7 days
   upload:
     max-files-per-job: 10000  # Effectively unlimited

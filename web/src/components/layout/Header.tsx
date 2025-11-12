@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
 /**
@@ -7,7 +7,13 @@ import { useAuth } from '../../hooks/useAuth';
  * Application header with navigation and user menu.
  */
 export default function Header() {
+  const navigate = useNavigate();
   const { isAuthenticated, user, clearAuth } = useAuth();
+
+  const handleLogout = () => {
+    clearAuth();
+    navigate('/login');
+  };
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
@@ -24,8 +30,8 @@ export default function Header() {
               <>
                 <span className="text-gray-700">Welcome, {user?.username}</span>
                 <button
-                  onClick={clearAuth}
-                  className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
+                  onClick={handleLogout}
+                  className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 transition-colors"
                 >
                   Logout
                 </button>
@@ -34,13 +40,13 @@ export default function Header() {
               <>
                 <Link
                   to="/login"
-                  className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
+                  className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 transition-colors"
                 >
                   Login
                 </Link>
                 <Link
                   to="/register"
-                  className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary-dark"
+                  className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
                 >
                   Sign Up
                 </Link>

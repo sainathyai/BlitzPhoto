@@ -63,26 +63,14 @@ apiClient.interceptors.response.use(
             refreshToken,
           });
           
-          const { accessToken, refreshToken: newRefreshToken } = response.data;
+          const authResponse = response.data;
           
-          // Update both localStorage and auth store
-          localStorage.setItem('accessToken', accessToken);
-          if (newRefreshToken) {
-            localStorage.setItem('refreshToken', newRefreshToken);
-          }
-          
-          // Update auth store with new tokens
-          const authStore = useAuthStore.getState();
-          if (authStore.isAuthenticated) {
-            useAuthStore.setState({
-              accessToken,
-              refreshToken: newRefreshToken || authStore.refreshToken,
-            });
-          }
+          // Update auth store (this will also update localStorage)
+          useAuthStore.getState().setAuth(authResponse);
           
           // Retry original request with new token
           if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            originalRequest.headers.Authorization = `Bearer ${authResponse.accessToken}`;
           }
           
           return apiClient(originalRequest);

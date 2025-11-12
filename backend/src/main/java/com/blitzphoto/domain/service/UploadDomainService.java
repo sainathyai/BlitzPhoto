@@ -41,11 +41,6 @@ public class UploadDomainService {
             throw new IllegalArgumentException("Upload job must contain at least one photo");
         }
         
-        // Business rule: Maximum 100 photos per job (Blitz Speed requirement)
-        if (photoMetadata.size() > 100) {
-            throw new IllegalArgumentException("Upload job cannot contain more than 100 photos");
-        }
-        
         // Create upload job
         UploadJob uploadJob = UploadJob.builder()
                 .userId(user.getId())

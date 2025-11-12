@@ -103,7 +103,7 @@ blitzphoto:
       expiration-ms: 900000  # 15 minutes
       refresh-expiration-ms: 604800000  # 7 days
   upload:
-    max-files-per-job: 100
+    max-files-per-job: 10000  # Effectively unlimited
     max-file-size-mb: 50
     multipart-threshold-mb: 5  # Files >5MB use multipart upload
     allowed-mime-types: image/jpeg,image/png,image/heic,image/webp

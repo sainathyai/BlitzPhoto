@@ -15,7 +15,7 @@ import java.util.UUID;
 @Builder
 public record DeletePhotosRequest(
         @NotEmpty(message = "At least one photoId must be provided")
-        @Size(max = 100, message = "Cannot delete more than 100 photos at once")
+        @Size(max = 10000, message = "Cannot delete more than 10000 photos at once")
         List<UUID> photoIds
 ) {
 }

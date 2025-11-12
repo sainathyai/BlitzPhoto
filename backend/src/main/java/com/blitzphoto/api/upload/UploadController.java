@@ -71,7 +71,7 @@ public class UploadController {
     @Operation(
             summary = "Initiate photo upload",
             description = "Creates an upload job and returns presigned URLs for direct S3 uploads. " +
-                    "Supports up to 100 photos per job with Blitz Speed uploads."
+                    "Supports unlimited photos per job with Blitz Speed uploads."
     )
     public ResponseEntity<InitiateUploadResponse> initiateUpload(
             @Valid @RequestBody InitiateUploadRequest request

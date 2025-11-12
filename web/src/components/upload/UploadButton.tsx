@@ -19,7 +19,7 @@ export default function UploadButton({
   disabled = false,
   loading = false,
   fileCount = 0,
-  maxFiles = 100,
+  maxFiles = 10000, // Effectively unlimited
 }: UploadButtonProps) {
   const isDisabled = disabled || loading || fileCount === 0 || fileCount > maxFiles;
 

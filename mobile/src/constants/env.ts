@@ -16,7 +16,7 @@ export const env = {
   
   // Upload Configuration
   upload: {
-    maxFiles: 100,
+    maxFiles: 10000, // Effectively unlimited
     maxFileSize: 50 * 1024 * 1024, // 50MB in bytes
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/heic', 'image/webp'],
     multipartThreshold: 5 * 1024 * 1024, // 5MB in bytes

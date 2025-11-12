@@ -17,7 +17,7 @@ interface UploadDropzoneProps {
 export default function UploadDropzone({
   onFilesSelected,
   disabled = false,
-  maxFiles = 100,
+  maxFiles = 10000, // Effectively unlimited
 }: UploadDropzoneProps) {
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -82,7 +82,7 @@ export default function UploadDropzone({
             or click to browse files
           </p>
           <p className="text-xs text-gray-400 mt-1">
-            Supports JPEG, PNG, HEIC, WebP (max {maxFiles} files)
+            Supports JPEG, PNG, HEIC, WebP (unlimited files)
           </p>
         </div>
       </div>

@@ -39,8 +39,24 @@ public class CorsConfig {
                 .map(String::trim)
                 .filter(origin -> !origin.isEmpty())
                 .toList();
-        configuration.setAllowedOrigins(origins);
-        configuration.setAllowedOriginPatterns(origins);
+        
+        // For React Native/Expo: Use origin patterns to allow requests without Origin header
+        // React Native doesn't send Origin header, so we use patterns instead of exact origins
+        // This allows both browser clients (with Origin) and React Native (without Origin)
+        if (origins.isEmpty() || origins.contains("*")) {
+            // Allow all origins (development only) - supports React Native
+            configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+        } else {
+            // Use origin patterns to support React Native (which doesn't send Origin header)
+            // Add all origins as patterns, plus wildcard patterns for local network
+            List<String> originPatterns = new java.util.ArrayList<>(origins);
+            // Add wildcard patterns for local development (React Native compatibility)
+            originPatterns.add("http://*:*");
+            originPatterns.add("https://*:*");
+            configuration.setAllowedOriginPatterns(originPatterns);
+            // Also set exact origins for browser clients that send Origin header
+            configuration.setAllowedOrigins(origins);
+        }
         
         // Parse allowed methods
         List<String> methods = Arrays.asList(allowedMethods.split(","));

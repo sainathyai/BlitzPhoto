@@ -32,6 +32,13 @@ export default function RegisterScreen({ navigation }: any) {
       return response.data;
     },
     onSuccess: async (data) => {
+      console.log('Register success, received data:', {
+        userId: data.userId,
+        email: data.email,
+        username: data.username,
+        hasAccessToken: !!data.accessToken,
+        hasRefreshToken: !!data.refreshToken,
+      });
       await setAuth(data);
       // Navigation will automatically switch to MainNavigator
     },

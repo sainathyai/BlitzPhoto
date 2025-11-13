@@ -21,8 +21,8 @@ export default function GalleryButton({ onPress, disabled = false }: GalleryButt
       disabled={disabled}
     >
       <View style={styles.content}>
-        <Ionicons name="images" size={24} color={theme.colors.background} />
-        <Text style={styles.text}>Choose from Gallery</Text>
+        <Ionicons name="images" size={20} color={theme.colors.background} />
+        <Text style={styles.text}>Gallery</Text>
       </View>
     </TouchableOpacity>
   );
@@ -32,10 +32,11 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: theme.colors.secondary,
     borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
+    padding: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 56,
+    minHeight: 44,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -47,7 +48,7 @@ const styles = StyleSheet.create({
   },
   text: {
     color: theme.colors.background,
-    fontSize: theme.fontSize.md,
+    fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.semibold,
   },
 });

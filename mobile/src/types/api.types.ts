@@ -81,6 +81,7 @@ export interface PhotoStatusResponse {
   fileSize: number;
   status: string;
   s3Key: string;
+  photoUrl: string | null;
   errorMessage: string | null;
   uploadedAt: string | null;
   processedAt: string | null;
@@ -102,7 +103,7 @@ export interface UploadJobStatusResponse {
 }
 
 export interface AuthRequest {
-  email: string;
+  emailOrUsername: string;
   password: string;
 }
 
@@ -115,13 +116,21 @@ export interface RegisterRequest {
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
-  user: {
-    id: string;
-    email: string;
-    username: string;
-  };
+  tokenType?: string;
+  expiresIn?: number;
+  userId: string;
+  email: string;
+  username: string;
+  issuedAt?: string;
   expiresAt: string;
 }
+
+// User info from AuthResponse (minimal fields)
+export type AuthUser = {
+  id: string;
+  email: string;
+  username: string;
+};
 
 export interface User {
   id: string;

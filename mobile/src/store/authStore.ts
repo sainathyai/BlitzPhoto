@@ -8,15 +8,15 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { User, AuthResponse } from '../types/api.types';
+import type { User, AuthResponse, AuthUser } from '../types/api.types';
 
 interface AuthState {
-  user: User | null;
+  user: AuthUser | null;
   accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
   setAuth: (authResponse: AuthResponse) => Promise<void>;
-  setUser: (user: User) => void;
+  setUser: (user: AuthUser) => void;
   clearAuth: () => Promise<void>;
 }
 
@@ -29,19 +29,41 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       
       setAuth: async (authResponse: AuthResponse) => {
-        set({
-          user: authResponse.user,
+        console.log('setAuth called with:', {
+          userId: authResponse.userId,
+          email: authResponse.email,
+          username: authResponse.username,
+          hasAccessToken: !!authResponse.accessToken,
+          hasRefreshToken: !!authResponse.refreshToken,
+        });
+        
+        // Construct user object from flat fields
+        const user: AuthUser = {
+          id: authResponse.userId,
+          email: authResponse.email,
+          username: authResponse.username,
+        };
+        
+        if (!user.id || !user.email) {
+          console.error('AuthResponse missing required fields!', authResponse);
+        }
+        
+        const newState = {
+          user,
           accessToken: authResponse.accessToken,
           refreshToken: authResponse.refreshToken,
-          isAuthenticated: true,
-        });
+          isAuthenticated: !!user.id && !!authResponse.accessToken,
+        };
+        
+        console.log('Setting auth state:', newState);
+        set(newState);
         
         // Also store in AsyncStorage for API interceptor
         await AsyncStorage.setItem('accessToken', authResponse.accessToken);
         await AsyncStorage.setItem('refreshToken', authResponse.refreshToken);
       },
       
-      setUser: (user: User) => {
+      setUser: (user: AuthUser) => {
         set({ user });
       },
       

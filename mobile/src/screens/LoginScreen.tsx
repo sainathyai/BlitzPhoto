@@ -31,6 +31,13 @@ export default function LoginScreen({ navigation }: any) {
       return response.data;
     },
     onSuccess: async (data) => {
+      console.log('Login success, received data:', {
+        userId: data.userId,
+        email: data.email,
+        username: data.username,
+        hasAccessToken: !!data.accessToken,
+        hasRefreshToken: !!data.refreshToken,
+      });
       await setAuth(data);
       // Navigation will automatically switch to MainNavigator
     },
@@ -45,7 +52,7 @@ export default function LoginScreen({ navigation }: any) {
       return;
     }
 
-    loginMutation.mutate({ email, password });
+    loginMutation.mutate({ emailOrUsername: email, password });
   };
 
   return (

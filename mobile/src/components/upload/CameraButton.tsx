@@ -22,7 +22,7 @@ export default function CameraButton({ onPress, disabled = false }: CameraButton
     >
       <View style={styles.content}>
         <Ionicons name="camera" size={24} color={theme.colors.background} />
-        <Text style={styles.text}>Take Photo</Text>
+        <Text style={styles.text}>Photo</Text>
       </View>
     </TouchableOpacity>
   );

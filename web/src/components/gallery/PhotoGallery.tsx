@@ -161,26 +161,37 @@ export default function PhotoGallery({
       : [];
     
     // Merge optimistic photos with API photos, avoiding duplicates by photoId
+    // Use Map to ensure uniqueness - if same photoId appears multiple times, keep the first one
     const photoMap = new Map<string, PhotoStatusResponse>();
     
     // First, add all API photos (they take precedence)
+    // If duplicates exist in API response, Map will automatically deduplicate
     apiPhotos.forEach(photo => {
-      photoMap.set(photo.photoId, photo);
+      if (photo.photoId && !photoMap.has(photo.photoId)) {
+        photoMap.set(photo.photoId, photo);
+      }
     });
     
     // Then add optimistic photos that don't exist in API yet
     optimisticPhotos.forEach(opt => {
-      if (!photoMap.has(opt.photoId)) {
+      if (opt.photoId && !photoMap.has(opt.photoId)) {
         photoMap.set(opt.photoId, opt);
       }
     });
     
     // Convert map to array, sort by createdAt descending
-    return Array.from(photoMap.values()).sort((a, b) => {
+    const uniquePhotos = Array.from(photoMap.values()).sort((a, b) => {
       const dateA = new Date(a.createdAt).getTime();
       const dateB = new Date(b.createdAt).getTime();
       return dateB - dateA; // Newest first
     });
+    
+    // Debug: Log if duplicates were found
+    if (apiPhotos.length > uniquePhotos.length) {
+      console.warn(`Deduplication: Found ${apiPhotos.length} photos, ${uniquePhotos.length} unique after deduplication`);
+    }
+    
+    return uniquePhotos;
   }, [data, optimisticPhotos]);
 
   // Only poll when there are photos that are still processing

@@ -18,8 +18,7 @@ interface PhotoCardProps {
  */
 export default function PhotoCard({ photo, isSelected = false, selectionMode = false, onToggleSelect, onView, onEnterSelectionMode }: PhotoCardProps) {
   const [imageError, setImageError] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggeredRef = useRef(false);
 
   // Cleanup timer on unmount
@@ -38,7 +37,7 @@ export default function PhotoCard({ photo, isSelected = false, selectionMode = f
     onToggleSelect?.(photo.photoId);
   };
 
-  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleMouseDown = (_e: React.MouseEvent | React.TouchEvent) => {
     if (selectionMode) return; // Already in selection mode
     
     // Reset state
@@ -79,12 +78,11 @@ export default function PhotoCard({ photo, isSelected = false, selectionMode = f
     }
   };
 
-  const handleMouseLeave = (e: React.MouseEvent) => {
+  const handleMouseLeave = (_e: React.MouseEvent) => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
-    setIsHovered(false);
   };
 
   const getStatusBadge = () => {
@@ -143,9 +141,10 @@ export default function PhotoCard({ photo, isSelected = false, selectionMode = f
   return (
     <motion.div
       className={cardClasses}
-      onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={handleMouseLeave}
       onPointerDown={(e) => {
+        // Stop propagation to prevent drag selection when clicking on photo
+        e.stopPropagation();
         // Only handle left mouse button or touch
         if (e.button === 0 || e.pointerType === 'touch') {
           handleMouseDown(e);
@@ -158,6 +157,8 @@ export default function PhotoCard({ photo, isSelected = false, selectionMode = f
       }}
       // Fallback for browsers that don't support pointer events
       onMouseDown={(e) => {
+        // Stop propagation to prevent drag selection when clicking on photo
+        e.stopPropagation();
         if (e.button === 0) {
           handleMouseDown(e);
         }
@@ -167,7 +168,10 @@ export default function PhotoCard({ photo, isSelected = false, selectionMode = f
           handleMouseUp(e);
         }
       }}
-      onTouchStart={(e) => handleMouseDown(e)}
+      onTouchStart={(e) => {
+        e.stopPropagation();
+        handleMouseDown(e);
+      }}
       onTouchEnd={(e) => handleMouseUp(e)}
       onContextMenu={(e) => {
         // Prevent context menu on long press
@@ -194,17 +198,6 @@ export default function PhotoCard({ photo, isSelected = false, selectionMode = f
           // Only view if we're not in the middle of a long press
           onView(photo.photoId);
         }
-      }}
-      onMouseDown={(e) => {
-        // Stop propagation to prevent drag selection when clicking on photo
-        e.stopPropagation();
-        if (e.button === 0) {
-          handleMouseDown(e);
-        }
-      }}
-      onTouchStart={(e) => {
-        e.stopPropagation();
-        handleMouseDown(e);
       }}
     >
       {/* Selection Checkbox - Only show in selection mode */}

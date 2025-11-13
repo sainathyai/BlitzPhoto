@@ -357,6 +357,7 @@ public class UploadController {
      */
     private PhotoStatusResponse toPhotoStatusResponse(Photo photo) {
         // Generate presigned URL for photo access
+        // Only generate URL for COMPLETED photos
         String photoUrl = null;
         if (photo.getS3Key() != null && photo.getStatus() == Photo.UploadStatus.COMPLETED) {
             try {

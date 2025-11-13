@@ -48,6 +48,16 @@ public interface PhotoRepository extends JpaRepository<Photo, UUID>, JpaSpecific
     Page<Photo> findByUserId(@Param("userId") UUID userId, Pageable pageable);
 
     /**
+     * Find all COMPLETED photos by user ID with pagination
+     * 
+     * @param userId The user ID
+     * @param pageable Pageable for pagination
+     * @return Page of photos
+     */
+    @Query("SELECT p FROM Photo p JOIN UploadJob uj ON p.uploadJob.id = uj.id WHERE uj.userId = :userId AND p.status = 'COMPLETED'")
+    Page<Photo> findCompletedByUserId(@Param("userId") UUID userId, Pageable pageable);
+
+    /**
      * Find all photos by user ID and status
      * 
      * @param userId The user ID

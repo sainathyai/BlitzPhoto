@@ -45,8 +45,8 @@ public class GetPhotosQueryHandler {
         
         Pageable pageable = PageRequest.of(query.getPage(), query.getSize(), sort);
         
-        // Query photos by user ID
-        Page<Photo> photos = photoRepository.findByUserId(query.getUserId(), pageable);
+        // Only load COMPLETED photos
+        Page<Photo> photos = photoRepository.findCompletedByUserId(query.getUserId(), pageable);
         
         log.debug("Found {} photos for user {}", photos.getTotalElements(), query.getUserId());
         

@@ -245,7 +245,7 @@ export function useFileUpload() {
         await apiClient.post<CompleteUploadResponse>('/uploads/complete', completeRequest);
         console.log('Upload job completed successfully');
         
-        // Invalidate photos query to refresh the gallery
+        // Invalidate photos query to refresh the gallery (this will replace optimistic photos)
         queryClient.invalidateQueries({ queryKey: ['photos', user?.id] });
       } catch (error) {
         console.error('Failed to complete upload job:', error);

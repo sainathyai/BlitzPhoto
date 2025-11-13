@@ -1,21 +1,43 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '../../lib/axios';
 import { useAuth } from '../../hooks/useAuth';
 import type { DeletePhotosResponse, PhotoStatusResponse } from '../../types/api.types';
 import PhotoCard from './PhotoCard';
+import UploadTile from './UploadTile';
+import PhotoPreviewModal from './PhotoPreviewModal';
 import { motion } from 'framer-motion';
+
+interface PhotoGalleryProps {
+  onFilesSelected?: (files: File[]) => void;
+  isUploading?: boolean;
+  maxFiles?: number;
+  optimisticPhotos?: PhotoStatusResponse[]; // Photos to show immediately before API loads
+}
 
 /**
  * PhotoGallery Component
  * 
  * Displays grid of uploaded photos with pagination.
+ * Includes upload tile as the first item in the grid.
  */
-export default function PhotoGallery() {
+export default function PhotoGallery({
+  onFilesSelected,
+  isUploading = false,
+  maxFiles = 10000,
+  optimisticPhotos = [],
+}: PhotoGalleryProps = {}) {
   const { user, isAuthenticated } = useAuth();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  const [dragEnd, setDragEnd] = useState<{ x: number; y: number } | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
   const queryClient = useQueryClient();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const refetchRef = useRef<() => void>(() => {});
   const pageSize = 20;
 
   const {
@@ -31,6 +53,10 @@ export default function PhotoGallery() {
     queryKey: ['photos', user?.id],
     enabled: !!user && isAuthenticated,
     initialPageParam: 0,
+    refetchOnWindowFocus: false, // Disable refetch on window focus
+    refetchOnMount: false, // Disable refetch on mount if data exists
+    refetchOnReconnect: false, // Disable refetch on reconnect
+    staleTime: 30000, // Consider data fresh for 30 seconds
     queryFn: async ({ pageParam }) => {
       if (!user) {
         throw new Error('User not authenticated');
@@ -85,21 +111,6 @@ export default function PhotoGallery() {
   });
 
   useEffect(() => {
-    // Refetch photos periodically to get updates (only if authenticated)
-    if (!isAuthenticated || !user) {
-      return;
-    }
-    
-    const interval = setInterval(() => {
-      if (isAuthenticated && user) {
-        refetch();
-      }
-    }, 5000); // Poll every 5 seconds
-
-    return () => clearInterval(interval);
-  }, [user, isAuthenticated, refetch]);
-
-  useEffect(() => {
     if (!data?.pages) {
       setSelectedIds(new Set());
       return;
@@ -145,12 +156,202 @@ export default function PhotoGallery() {
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   const allPhotos = useMemo(() => {
-    if (!data?.pages) {
-      return [];
+    const apiPhotos = data?.pages 
+      ? (data.pages.flatMap((page) => page?.content ?? []) as PhotoStatusResponse[])
+      : [];
+    
+    // Merge optimistic photos with API photos, avoiding duplicates by photoId
+    const photoMap = new Map<string, PhotoStatusResponse>();
+    
+    // First, add all API photos (they take precedence)
+    apiPhotos.forEach(photo => {
+      photoMap.set(photo.photoId, photo);
+    });
+    
+    // Then add optimistic photos that don't exist in API yet
+    optimisticPhotos.forEach(opt => {
+      if (!photoMap.has(opt.photoId)) {
+        photoMap.set(opt.photoId, opt);
+      }
+    });
+    
+    // Convert map to array, sort by createdAt descending
+    return Array.from(photoMap.values()).sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateB - dateA; // Newest first
+    });
+  }, [data, optimisticPhotos]);
+
+  // Only poll when there are photos that are still processing
+  const hasProcessingPhotos = useMemo(() => {
+    return allPhotos.some(photo => 
+      photo.status === 'PROCESSING' || photo.status === 'PENDING'
+    );
+  }, [allPhotos]);
+
+  // Store refetch in ref to avoid stale closures
+  useEffect(() => {
+    refetchRef.current = refetch;
+  }, [refetch]);
+
+  useEffect(() => {
+    // Only refetch periodically if there are photos still processing
+    // Once all photos are completed, stop polling
+    if (!isAuthenticated || !user || !hasProcessingPhotos) {
+      return;
+    }
+    
+    const interval = setInterval(() => {
+      if (isAuthenticated && user && refetchRef.current) {
+        refetchRef.current();
+      }
+    }, 10000); // Poll every 10 seconds only when processing
+
+    return () => clearInterval(interval);
+  }, [user, isAuthenticated, hasProcessingPhotos]); // Removed refetch from deps to prevent re-renders
+
+  // Drag selection handlers - MUST be before any early returns
+  const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    // Only start drag if clicking on empty space in the grid
+    const target = e.target as HTMLElement;
+    
+    // Don't start drag if clicking on interactive elements
+    if (
+      target.closest('[data-photo-card]') || 
+      target.closest('button') || 
+      target.closest('input') ||
+      target.closest('a') ||
+      target.closest('[role="button"]')
+    ) {
+      return;
     }
 
-    return data.pages.flatMap((page) => page?.content ?? []) as PhotoStatusResponse[];
-  }, [data]);
+    // Only start drag on left mouse button
+    if ('button' in e && e.button !== 0) {
+      return;
+    }
+
+    // Prevent text selection and default behavior
+    e.preventDefault();
+    e.stopPropagation();
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    if (!gridRef.current) return;
+
+    setIsDragging(true);
+    setDragStart({ x: clientX, y: clientY });
+    setDragEnd({ x: clientX, y: clientY });
+    
+    // Prevent text selection during drag
+    document.body.style.userSelect = 'none';
+    document.body.style.webkitUserSelect = 'none';
+    document.body.style.cursor = 'crosshair';
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+    setDragStart(null);
+    setDragEnd(null);
+    
+    // Re-enable text selection and cursor
+    document.body.style.userSelect = '';
+    document.body.style.webkitUserSelect = '';
+    document.body.style.cursor = '';
+  }, []);
+
+  // Global mouse/touch event handlers for drag selection
+  useEffect(() => {
+    if (!isDragging || !dragStart || !gridRef.current) return;
+
+    const handleDragMove = (e: MouseEvent | TouchEvent) => {
+      // Prevent default to avoid text selection
+      e.preventDefault();
+      
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+      setDragEnd({ x: clientX, y: clientY });
+
+      // Find photos within selection rectangle
+      if (!gridRef.current) return;
+      
+      const rect = gridRef.current.getBoundingClientRect();
+      const selectionRect = {
+        left: Math.min(dragStart.x, clientX) - rect.left,
+        top: Math.min(dragStart.y, clientY) - rect.top,
+        right: Math.max(dragStart.x, clientX) - rect.left,
+        bottom: Math.max(dragStart.y, clientY) - rect.top,
+      };
+
+      const photoElements = gridRef.current.querySelectorAll('[data-photo-card]');
+      const photosToSelect = new Set<string>();
+
+      photoElements.forEach((element) => {
+        const cardRect = element.getBoundingClientRect();
+        const cardLeft = cardRect.left - rect.left;
+        const cardTop = cardRect.top - rect.top;
+        const cardRight = cardLeft + cardRect.width;
+        const cardBottom = cardTop + cardRect.height;
+
+        // Check if card intersects with selection rectangle
+        if (
+          cardLeft < selectionRect.right &&
+          cardRight > selectionRect.left &&
+          cardTop < selectionRect.bottom &&
+          cardBottom > selectionRect.top
+        ) {
+          const photoId = element.getAttribute('data-photo-id');
+          if (photoId) {
+            photosToSelect.add(photoId);
+          }
+        }
+      });
+
+      // Update selection - add all photos in selection rectangle
+      if (photosToSelect.size > 0) {
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          photosToSelect.forEach((id) => next.add(id));
+          return next;
+        });
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      handleDragMove(e);
+    };
+
+    const handleMouseUp = () => {
+      handleDragEnd();
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      handleDragMove(e);
+    };
+
+    const handleTouchEnd = () => {
+      handleDragEnd();
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+      // Re-enable text selection on cleanup
+      document.body.style.userSelect = '';
+      document.body.style.webkitUserSelect = '';
+    };
+  }, [isDragging, dragStart, handleDragEnd]);
 
   const totalItems = data?.pages?.[0]?.totalElements ?? allPhotos.length;
 
@@ -184,11 +385,40 @@ export default function PhotoGallery() {
     );
   }
 
-  // Safely check if data exists and has content array
+  // Empty state - show preview grid
   if (!allPhotos || allPhotos.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">No photos yet. Upload some photos to get started!</p>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between pb-4 border-b border-neutral-200">
+          <div>
+            <h3 className="text-2xl font-bold text-neutral-900 mb-1">Photo Library</h3>
+            <p className="text-sm text-neutral-500">No photos yet</p>
+          </div>
+        </div>
+        <div className="text-center py-12">
+          <div className="inline-block p-6 bg-neutral-100 rounded-2xl mb-4">
+            <svg className="w-16 h-16 text-neutral-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <p className="text-lg font-medium text-neutral-700 mb-2">No photos yet</p>
+          <p className="text-sm text-neutral-500 mb-6">Upload some photos to get started!</p>
+          {/* Preview Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6 max-w-4xl mx-auto mt-8">
+            {[...Array(10)].map((_, i) => (
+              <div
+                key={i}
+                className="aspect-square bg-neutral-100 rounded-xl border-2 border-dashed border-neutral-300 flex items-center justify-center opacity-50"
+              >
+                <div className="w-8 h-8 text-neutral-400">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -233,14 +463,23 @@ export default function PhotoGallery() {
     deletePhotosMutation.mutate(Array.from(selectedIds));
   };
 
+  const handleViewPhoto = (photoId: string) => {
+    const index = allPhotos.findIndex((p) => p.photoId === photoId);
+    if (index !== -1) {
+      setPreviewIndex(index);
+      setPreviewModalOpen(true);
+    }
+  };
+
   const isDeleting = deletePhotosMutation.status === 'pending';
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      {/* Header with Contextual Actions */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between pb-3 border-b border-neutral-200">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900">Photo Library</h3>
-          <p className="text-sm text-slate-500">
+          <h3 className="text-lg font-bold text-neutral-900 mb-0.5">Photo Library</h3>
+          <p className="text-xs text-neutral-500">
             {`Showing ${allPhotos.length} of ${totalItems} photos`}
             {selectedCount > 0 ? ` • ${selectedCount} selected` : ''}
           </p>
@@ -250,7 +489,7 @@ export default function PhotoGallery() {
             type="button"
             onClick={handleSelectAll}
             disabled={allPhotos.length === 0}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-500"
+            className="px-3 py-1.5 text-xs font-medium text-neutral-700 bg-neutral-100 rounded-lg transition-colors hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {allSelected ? 'Clear selection' : 'Select all'}
           </button>
@@ -258,48 +497,127 @@ export default function PhotoGallery() {
             type="button"
             onClick={handleDeleteSelected}
             disabled={selectedCount === 0 || isDeleting}
-            className="rounded-full bg-rose-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:bg-rose-300"
+            className="px-3 py-1.5 text-xs font-semibold text-white bg-danger rounded-lg shadow-sm transition-all hover:bg-danger-light hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isDeleting ? 'Deleting…' : `Delete selected (${selectedCount})`}
+            {isDeleting ? 'Deleting…' : `Delete (${selectedCount})`}
           </button>
         </div>
       </div>
 
       {/* Photo Grid */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+      <div 
+        className="relative" 
+        style={{ userSelect: isDragging ? 'none' : 'auto', minHeight: '200px' }}
+        onMouseDown={handleDragStart}
+        onTouchStart={handleDragStart}
       >
+        <motion.div
+          ref={gridRef}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3 md:gap-4"
+          style={{ userSelect: 'none', WebkitUserSelect: 'none', pointerEvents: 'auto' }}
+        >
+        {/* Upload Tile - First Item */}
+        {onFilesSelected && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0 }}
+          >
+            <UploadTile
+              onFilesSelected={onFilesSelected}
+              disabled={isUploading}
+              maxFiles={maxFiles}
+            />
+          </motion.div>
+        )}
+        
+        {/* Photo Cards */}
         {allPhotos.map((photo, index) => (
           <motion.div
             key={photo.photoId}
+            data-photo-card
+            data-photo-id={photo.photoId}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: index * 0.05 }}
+            transition={{ delay: (index + (onFilesSelected ? 1 : 0)) * 0.03 }}
           >
             <PhotoCard
               photo={photo}
               isSelected={selectedIds.has(photo.photoId)}
               selectionMode={selectedCount > 0}
               onToggleSelect={handleToggleSelect}
+              onView={handleViewPhoto}
+              onEnterSelectionMode={() => {
+                // Enter selection mode by selecting this photo
+                handleToggleSelect(photo.photoId);
+              }}
             />
           </motion.div>
         ))}
-      </motion.div>
+        </motion.div>
 
-      <div ref={loadMoreRef} className="flex justify-center py-6">
-        {isFetchingNextPage ? (
-          <div className="flex items-center gap-2 text-sm text-slate-500">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-500" />
-            Loading more photos...
-          </div>
-        ) : hasNextPage ? (
-          <span className="text-sm text-slate-400">Scroll to load more</span>
-        ) : (
-          <span className="text-sm text-slate-400">You&apos;re all caught up</span>
+        {/* Drag Selection Rectangle */}
+        {isDragging && dragStart && dragEnd && gridRef.current && (
+          <div
+            className="absolute border-2 border-primary bg-primary/10 pointer-events-none z-50"
+            style={{
+              left: `${Math.min(dragStart.x, dragEnd.x) - gridRef.current.getBoundingClientRect().left}px`,
+              top: `${Math.min(dragStart.y, dragEnd.y) - gridRef.current.getBoundingClientRect().top}px`,
+              width: `${Math.abs(dragEnd.x - dragStart.x)}px`,
+              height: `${Math.abs(dragEnd.y - dragStart.y)}px`,
+              borderColor: 'rgb(99 102 241)',
+              backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            }}
+          />
         )}
       </div>
+
+      {/* Empty State Preview Grid */}
+      {allPhotos.length === 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6 py-12">
+          {[...Array(10)].map((_, i) => (
+            <div
+              key={i}
+              className="aspect-square bg-neutral-100 rounded-xl border-2 border-dashed border-neutral-300 flex items-center justify-center"
+            >
+              <div className="w-8 h-8 text-neutral-400">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Load More Indicator */}
+      <div ref={loadMoreRef} className="flex justify-center py-8">
+        {isFetchingNextPage ? (
+          <div className="flex items-center gap-3 text-sm text-neutral-500">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-neutral-200 border-t-primary" />
+            <span>Loading more photos...</span>
+          </div>
+        ) : hasNextPage ? (
+          <span className="text-sm text-neutral-400">Scroll to load more</span>
+        ) : allPhotos.length > 0 ? (
+          <span className="text-sm text-neutral-400">You&apos;re all caught up</span>
+        ) : null}
+      </div>
+
+      {/* Photo Preview Modal */}
+      <PhotoPreviewModal
+        isOpen={previewModalOpen}
+        onClose={() => setPreviewModalOpen(false)}
+        photos={allPhotos}
+        initialIndex={previewIndex}
+      />
     </div>
   );
 }

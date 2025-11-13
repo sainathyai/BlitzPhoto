@@ -1,13 +1,14 @@
-import { useState, type MouseEvent } from 'react';
+import { useState, type MouseEvent, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import type { PhotoStatusResponse } from '../../types/api.types';
-import { formatFileSize, formatDate } from '../../lib/utils';
 
 interface PhotoCardProps {
   photo: PhotoStatusResponse;
   isSelected?: boolean;
   selectionMode?: boolean;
   onToggleSelect?: (photoId: string) => void;
+  onView?: (photoId: string) => void;
+  onEnterSelectionMode?: () => void;
 }
 
 /**
@@ -15,9 +16,20 @@ interface PhotoCardProps {
  * 
  * Displays individual photo card with thumbnail, metadata, and actions.
  */
-export default function PhotoCard({ photo, isSelected = false, selectionMode = false, onToggleSelect }: PhotoCardProps) {
+export default function PhotoCard({ photo, isSelected = false, selectionMode = false, onToggleSelect, onView, onEnterSelectionMode }: PhotoCardProps) {
   const [imageError, setImageError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressTriggeredRef = useRef(false);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleToggle = (event?: MouseEvent) => {
     if (event) {
@@ -26,33 +38,91 @@ export default function PhotoCard({ photo, isSelected = false, selectionMode = f
     onToggleSelect?.(photo.photoId);
   };
 
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    if (selectionMode) return; // Already in selection mode
+    
+    // Reset state
+    longPressTriggeredRef.current = false;
+    
+    // Start long press timer - store timer ID
+    const timerId = setTimeout(() => {
+      // Only trigger if this timer is still active
+      if (longPressTimerRef.current === timerId) {
+        longPressTriggeredRef.current = true;
+        // onEnterSelectionMode already calls handleToggleSelect, so don't call it again
+        onEnterSelectionMode?.();
+      }
+    }, 500); // 500ms long press
+    
+    longPressTimerRef.current = timerId;
+  };
+
+  const handleMouseUp = (e: React.MouseEvent | React.TouchEvent) => {
+    const timerWasActive = longPressTimerRef.current !== null;
+    const longPressCompleted = longPressTriggeredRef.current;
+    
+    // Clear the timer
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    
+    // If long press was completed, prevent click
+    if (longPressCompleted) {
+      e.preventDefault();
+      e.stopPropagation();
+      // Don't reset immediately - let click handler check it
+    } else if (!timerWasActive) {
+      // Timer was already cleared (long press completed), prevent click
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+
+  const handleMouseLeave = (e: React.MouseEvent) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    setIsHovered(false);
+  };
+
   const getStatusBadge = () => {
     switch (photo.status) {
       case 'COMPLETED':
         return (
-          <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-500 text-white rounded">
             Completed
           </span>
         );
       case 'PROCESSING':
         return (
-          <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-500 text-white rounded">
             Processing
           </span>
         );
       case 'FAILED':
         return (
-          <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
+          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-500 text-white rounded">
             Failed
           </span>
         );
       default:
         return (
-          <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
+          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-gray-500 text-white rounded">
             {photo.status}
           </span>
         );
     }
+  };
+
+  const formatDateShort = (date: Date | string): string => {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(d);
   };
 
   const interactiveSelection = selectionMode || isSelected;
@@ -63,9 +133,10 @@ export default function PhotoCard({ photo, isSelected = false, selectionMode = f
     'bg-white',
     'border',
     'transition-all',
-    'duration-200',
+    'duration-300',
     'hover:shadow-xl',
-    isSelected ? 'border-2 border-indigo-500 shadow-lg shadow-indigo-100' : 'border-slate-200 shadow-sm',
+    'hover:border-primary-300',
+    isSelected ? 'border-2 border-primary shadow-lg shadow-primary-100 ring-2 ring-primary-200' : 'border-neutral-200 shadow-sm',
     interactiveSelection ? 'cursor-pointer' : 'cursor-default',
   ].join(' ');
 
@@ -73,27 +144,84 @@ export default function PhotoCard({ photo, isSelected = false, selectionMode = f
     <motion.div
       className={cardClasses}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      whileHover={{ y: -4 }}
-      onClick={() => {
-        if (interactiveSelection) {
-          onToggleSelect?.(photo.photoId);
+      onMouseLeave={handleMouseLeave}
+      onPointerDown={(e) => {
+        // Only handle left mouse button or touch
+        if (e.button === 0 || e.pointerType === 'touch') {
+          handleMouseDown(e);
         }
       }}
+      onPointerUp={(e) => {
+        if (e.button === 0 || e.pointerType === 'touch') {
+          handleMouseUp(e);
+        }
+      }}
+      // Fallback for browsers that don't support pointer events
+      onMouseDown={(e) => {
+        if (e.button === 0) {
+          handleMouseDown(e);
+        }
+      }}
+      onMouseUp={(e) => {
+        if (e.button === 0) {
+          handleMouseUp(e);
+        }
+      }}
+      onTouchStart={(e) => handleMouseDown(e)}
+      onTouchEnd={(e) => handleMouseUp(e)}
+      onContextMenu={(e) => {
+        // Prevent context menu on long press
+        if (!selectionMode) {
+          e.preventDefault();
+        }
+      }}
+      whileHover={selectionMode ? {} : { y: -2 }}
+      onClick={(e) => {
+        // Prevent click if we just triggered long press
+        if (longPressTriggeredRef.current) {
+          e.preventDefault();
+          e.stopPropagation();
+          longPressTriggeredRef.current = false;
+          return;
+        }
+        // Don't handle click if it was part of a drag selection
+        if ((e.target as HTMLElement).closest('[data-photo-card]') && e.detail === 0) {
+          return; // This was a drag, not a click
+        }
+        if (selectionMode) {
+          onToggleSelect?.(photo.photoId);
+        } else if (onView && !longPressTimerRef.current) {
+          // Only view if we're not in the middle of a long press
+          onView(photo.photoId);
+        }
+      }}
+      onMouseDown={(e) => {
+        // Stop propagation to prevent drag selection when clicking on photo
+        e.stopPropagation();
+        if (e.button === 0) {
+          handleMouseDown(e);
+        }
+      }}
+      onTouchStart={(e) => {
+        e.stopPropagation();
+        handleMouseDown(e);
+      }}
     >
-      {/* Selection Checkbox */}
-      <button
-        type="button"
-        onClick={handleToggle}
-        className={`absolute top-3 left-3 z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 text-xs font-bold transition ${
-          isSelected
-            ? 'border-indigo-500 bg-indigo-500 text-white shadow-sm shadow-indigo-200'
-            : 'border-slate-300 bg-white text-transparent hover:text-slate-400'
-        }`}
-        aria-pressed={isSelected}
-      >
-        ✓
-      </button>
+      {/* Selection Checkbox - Only show in selection mode */}
+      {selectionMode && (
+        <button
+          type="button"
+          onClick={handleToggle}
+          className={`absolute top-2 left-2 z-20 flex h-5 w-5 items-center justify-center rounded-full border-2 text-[10px] font-bold transition ${
+            isSelected
+              ? 'border-indigo-500 bg-indigo-500 text-white shadow-sm shadow-indigo-200'
+              : 'border-slate-300 bg-white text-transparent hover:text-slate-400'
+          }`}
+          aria-pressed={isSelected}
+        >
+          ✓
+        </button>
+      )}
 
       {/* Thumbnail */}
       <div className="relative aspect-square bg-gray-100">
@@ -107,7 +235,7 @@ export default function PhotoCard({ photo, isSelected = false, selectionMode = f
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <svg
-              className="w-12 h-12 text-gray-400"
+              className="w-8 h-8 text-gray-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -122,48 +250,30 @@ export default function PhotoCard({ photo, isSelected = false, selectionMode = f
           </div>
         )}
 
-        {/* Overlay Actions */}
-        {isHovered && !selectionMode && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute inset-0 bg-black/50 flex items-center justify-center space-x-2"
-          >
-            <button
-              className="px-4 py-2 bg-white text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
-              onClick={() => {
-                // View functionality
-                if (photo.photoUrl) {
-                  window.open(photo.photoUrl, '_blank');
-                }
-              }}
-            >
-              View
-            </button>
-          </motion.div>
-        )}
+        {/* Overlay Actions - Only show View button on click, not hover */}
+        {/* Removed hover overlay to reduce distraction */}
 
         {/* Status Badge */}
-        <div className="absolute top-2 right-2">
-          {getStatusBadge()}
+        {photo.status !== 'COMPLETED' && (
+          <div className="absolute top-2 right-2">
+            {getStatusBadge()}
+          </div>
+        )}
+
+        {/* Upload Date Overlay - Bottom Right */}
+        <div className="absolute bottom-1.5 right-1.5 text-white text-[9px] font-medium drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+          {formatDateShort(photo.createdAt)}
         </div>
       </div>
 
-      {/* Metadata */}
-      <div className="p-4 space-y-2">
-        <p className="text-sm font-medium text-gray-900 truncate">
-          {photo.fileName}
-        </p>
-        <div className="flex items-center justify-between text-xs text-gray-500">
-          <span>{formatFileSize(photo.fileSize)}</span>
-          <span>{formatDate(photo.createdAt)}</span>
-        </div>
-        {photo.errorMessage && (
-          <p className="text-xs text-red-600 truncate" title={photo.errorMessage}>
+      {/* Error Message */}
+      {photo.errorMessage && (
+        <div className="p-2">
+          <p className="text-[10px] text-red-600 truncate" title={photo.errorMessage}>
             {photo.errorMessage}
           </p>
-        )}
-      </div>
+        </div>
+      )}
     </motion.div>
   );
 }

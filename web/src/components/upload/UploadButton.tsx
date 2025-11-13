@@ -28,10 +28,11 @@ export default function UploadButton({
       onClick={onClick}
       disabled={isDisabled}
       className={cn(
-        'px-6 py-3 rounded-lg font-medium text-white transition-colors',
+        'px-6 py-3 rounded-xl font-semibold text-white transition-all duration-200',
+        'shadow-lg hover:shadow-xl',
         isDisabled
-          ? 'bg-gray-400 cursor-not-allowed'
-          : 'bg-primary hover:bg-primary-dark',
+          ? 'bg-neutral-400 cursor-not-allowed'
+          : 'bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary',
         loading && 'opacity-75'
       )}
       whileHover={!isDisabled ? { scale: 1.02 } : {}}
